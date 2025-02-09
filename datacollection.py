@@ -2,12 +2,13 @@
 import os
 import time
 import re
+import pyfastx
 from Bio import Entrez, SeqIO
 
 
 Entrez.email = "krishaysingh2022@gmail.com"
 Entrez.api_key = "cb1c8ecbec68818042c259903f4aa5b7f908"
-
+"""
 def ensure_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -80,6 +81,12 @@ def mutation_continuous_fetch():
                 time.sleep(2)  
         
                 break
+                mutation_continuous_fetch()
+"""
 
 
-mutation_continuous_fetch()
+fasta = pyfastx.Fasta("datasets/sequences/mutations/NR_182153_1.fasta")
+
+# Iterate over all sequences
+for entry in fasta:
+    print(f">{entry.name}\n{entry.seq}")

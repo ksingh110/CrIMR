@@ -8,11 +8,11 @@ from Bio import Entrez, SeqIO
 
 Entrez.email = "krishaysingh2022@gmail.com"
 Entrez.api_key = "cb1c8ecbec68818042c259903f4aa5b7f908"
-"""
+
 def ensure_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
-control_output_directory = "datasets/sequences/control"
+control_output_directory = "datasets/control"
 ensure_directory(control_output_directory)
 if not os.path.exists(os.path.join(control_output_directory, "NC_000012.12.fasta")):
     
@@ -32,7 +32,7 @@ def mutation_continuous_fetch():
         "CRY1[Gene] AND variant[All Fields] AND Homo sapiens[Organism]",
     ]
     
-    cry1_output_directory = "datasets/sequences/mutations"
+    cry1_output_directory = "datasets/mutations"
     ensure_directory(cry1_output_directory)
     repeat = 0
     while True:
@@ -79,14 +79,7 @@ def mutation_continuous_fetch():
                         print(f"Error saving sequence {ref_name}: {e}")
                         os.remove(output_path)
                 time.sleep(2)  
-        
+    
                 break
-                mutation_continuous_fetch()
-"""
 
-
-fasta = pyfastx.Fasta("datasets/sequences/mutations/NR_182153_1.fasta")
-
-# Iterate over all sequences
-for entry in fasta:
-    print(f">{entry.name}\n{entry.seq}")
+mutation_continuous_fetch()

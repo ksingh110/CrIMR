@@ -35,7 +35,7 @@ def processdata():
             encoded_sequence = onehotencoder(seq, max_length = 500)
             encoded_sequences.append(encoded_sequence)
     path = os.path.join("datasets", "processeddata", "encoded_sequences.npy")
-    ensure_directory(path)
+    ensure_directory(os.path.dirname(path))
     encoded_sequences = np.array(encoded_sequences)
     np.save(path, encoded_sequences)
 processdata()

@@ -30,12 +30,12 @@ def processdata():
     files = list(glob.glob(os.path.join(folder, "*.fasta")))
 
     for file in files:
+        print(f"Processing {file}")
         fasta_init = pyfastx.Fastx(file)
         for seq in fasta_init:
             encoded_sequence = onehotencoder(seq, max_length = 500)
             encoded_sequences.append(encoded_sequence)
-    path = os.path.join("datasets", "processeddata", "encoded_sequences.npy")
-    ensure_directory(path)
+    path = os.path.join("datasets/processeddata", "encoded_sequences.npy")
     encoded_sequences = np.array(encoded_sequences)
     np.save(path, encoded_sequences)
 processdata()

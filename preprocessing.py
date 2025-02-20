@@ -6,6 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 import requests
+import h5py
 def onehotencoder(fasta_sequence, max_length = 102500):
     sequence_array = np.array(list(fasta_sequence))
     label_encoder = LabelEncoder()
@@ -81,7 +82,12 @@ if cry1_seq:
                 ohe_data = processdata(mutated_sequence)
                 encoded_sequences.append(ohe_data)
 path = os.path.join("datasets/processeddata", "encoded_mutation_sequences.npz")
-encoded_sequences = np.array(encoded_sequences, dtype=np.float32)
-np.savez_compressed(path, encoded_sequences)
+encoded_sequences = np.array(encoded_sequences, dtype=np.float16)
+# Save using HDF5 for efficient storage
+output_path = "datasets/processeddata/encoded_mutation_sequences.h5"
+os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+with h5py.File(output_path, "w") as hf:
+    hf.create_dataset("encoded_sequences", data=encoded_sequences, compression="gzip")
 print(f"Encoded shape: {encoded_sequences.shape}")
 

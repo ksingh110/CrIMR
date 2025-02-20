@@ -1,5 +1,4 @@
-#"chromStart","chromEnd","ref","alt","AF","genes","variation_type","_displayName"
-# Filtering on 1 columns
+"chromStart","chromEnd","ref","alt","AF","genes","variation_type","_displayName"
 "106991365","106991366","T","G","6.57990e-06","CRY1, MTERF2","downstream_gene_variant,3_prime_UTR_variant,upstream_gene_variant","chr12-106991366-T-G"
 "106991374","106991375","C","T","6.58120e-06","CRY1, MTERF2","downstream_gene_variant,non_coding_transcript_exon_variant,3_prime_UTR_variant,upstream_gene_variant","chr12-106991375-C-T"
 "106991375","106991376","A","G","6.57160e-06","CRY1, MTERF2","downstream_gene_variant,non_coding_transcript_exon_variant,3_prime_UTR_variant,upstream_gene_variant","chr12-106991376-A-G"

@@ -1,11 +1,13 @@
-import pyfastx
-import glob
-import os
+import numpy as np
+import pandas as pd
 
-folder = os.path.join("datasets", "mutations")
-files = list(glob.glob(os.path.join(folder, "*.fasta")))
+# Load the .npy file
+data = np.load('datasets\processeddata\encoded_sequences.npy', allow_pickle=True)
 
-for file in files:
-    fasta_init = pyfastx.Fastx(file)
-    for name, seq in fasta_init:
-        print(name, seq)
+# Convert to DataFrame (if the data is a 2D array)
+df = pd.DataFrame(data)
+
+# Save to CSV
+df.to_csv('encoded_sequences.csv', index=False)
+
+print("Saved as encoded_sequences.csv")

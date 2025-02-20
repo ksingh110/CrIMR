@@ -11,6 +11,7 @@ def get_CRY1_gene():
 
 # Function to add CRY1 mutation to the regular CRY1 sequence
 def add_mutation(seq, chromnum, pos, refnuc, altnuc):
+    
     seq_start = pos - 106991364
     seq_end = seq_start + len(refnuc)
     print (seq_start)
@@ -31,6 +32,7 @@ df = pd.read_csv(csv, names=['H'], header=None)
 
 # Get the CRY1 sequence
 cry1_seq = get_CRY1_gene()
+print(len(cry1_seq))
 
 if cry1_seq:
     with open("CRY1_mutations.fasta", "w") as fasta_file:

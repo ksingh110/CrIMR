@@ -4,9 +4,9 @@ import pyfastx
 import glob
 import os
 import numpy as np
-
-
-def onehotencoder(fasta_sequence, max_length = 500):
+import pandas as pd
+import requests
+def onehotencoder(fasta_sequence, max_length = 102500):
     sequence_array = np.array(list(fasta_sequence))
     label_encoder = LabelEncoder()
     integer_encoded = label_encoder.fit_transform(sequence_array)
@@ -23,21 +23,65 @@ def onehotencoder(fasta_sequence, max_length = 500):
 def ensure_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
+def processdata(file):
+    encoded_sequence = onehotencoder(file, max_length =  102500)
+    return encoded_sequence
 
-def processdata():
-    encoded_sequences = []
-    folder = os.path.join("datasets", "mutations")
-    files = list(glob.glob(os.path.join(folder, "*.fasta")))
 
-    for file in files:
-        print(f"Processing {file}")
-        fasta_init = pyfastx.Fastx(file)
-        for seq in fasta_init:
-            encoded_sequence = onehotencoder(seq, max_length = 500)
-            encoded_sequences.append(encoded_sequence)
-    path = os.path.join("datasets/processeddata", "encoded_sequences.npy")
-    encoded_sequences = np.array(encoded_sequences)
-    np.save(path, encoded_sequences)
-processdata()
+def get_CRY1_gene():
+    response = requests.get("https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr12;start=106991364;end=107093549")
+    if response.status_code == 200:
+        return response.json().get("dna", "").upper()
+    else:
+        return None
 
+# Function to add CRY1 mutation to the regular CRY1 sequence
+def add_mutation(seq, start, end, refnuc, altnuc):
+ 
+    seq_start = start 
+    seq_end = end
+    print (seq_start)
+    print (seq_end) 
+    print (refnuc)
+    print (seq[seq_start:seq_end])
+    if seq[seq_start:seq_end] != refnuc:
+        print(f"The positions of the sequences do not match, or the sequence does not exist.")
+        return None
+    else:
+        mutated_seq = seq[:seq_start] + altnuc + seq[seq_end:]
+        print(f"Matches")
+     
+        return mutated_seq
+
+# Read the CSV file and store it in a variable
+csv = "cry1realvariations (1).csv"
+df = pd.read_csv(csv, usecols=['chromEnd', 'ref', 'alt', 'AF', 'genes', 'variation_type', '_displayName'])
+
+
+# Get the CRY1 sequence
+cry1_seq = get_CRY1_gene()
+print(cry1_seq)
+encoded_sequences = []
+if cry1_seq:
+        for index, row in df.iterrows():
+            gnomAD_ID = row["_displayName"]
+            print(f"gnomAD_ID: {gnomAD_ID}")  # Corrected print statement
+            refnuc = str(row["ref"]) if pd.notna(row["ref"]) else ""
+            start = row["chromEnd"] - 106991364- len(row["ref"]) 
+            end = row["chromEnd"] - 106991364
+            altnuc = str(row["alt"]) if pd.notna(row["alt"]) else ""
+            
+           
+                
+                # Make sure chromnum is correctly formatted (if needed)
+                # For instance, ensure it starts with "chr" or adjust as required
+                
+            mutated_sequence = add_mutation(cry1_seq, start, end, refnuc, altnuc)
+            if mutated_sequence:
+                ohe_data = processdata(mutated_sequence)
+                encoded_sequences.append(ohe_data)
+path = os.path.join("datasets/processeddata", "encoded_mutation_sequences.npz")
+encoded_sequences = np.array(encoded_sequences, dtype=np.float32)
+np.savez_compressed(path, encoded_sequences)
+print(f"Encoded shape: {encoded_sequences.shape}")
 

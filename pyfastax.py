@@ -1,13 +1,10 @@
+import h5py
 import numpy as np
-import pandas as pd
 
-# Load the .npy file
-data = np.load('datasets\processeddata\encoded_sequences.npy', allow_pickle=True)
+# Load the saved data
+file_path = "datasets/processeddata/encoded_mutation_sequences.h5"
 
-# Convert to DataFrame (if the data is a 2D array)
-df = pd.DataFrame(data)
+with h5py.File(file_path, "r") as hf:
+    encoded_sequences = hf["encoded_sequences"][:]  # Read the dataset into a NumPy array
 
-# Save to CSV
-df.to_csv('encoded_sequences.csv', index=False)
-
-print("Saved as encoded_sequences.csv")
+print(f"Loaded data shape: {encoded_sequences.shape}")  # 

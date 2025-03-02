@@ -55,7 +55,7 @@ csv = "cry1realvariations (1).csv"
 df = pd.read_csv(csv, usecols=['chromEnd', 'ref', 'alt', 'AF', 'genes', 'variation_type', '_displayName'])
 df = df[df["variation_type"].str.contains("intron_variant", na=False, case=False)]
 # output file
-output_path = "E:\\datasets\processeddata\encoded_mutation_sequences_real.npz"
+output_path = "E:\\datasets\processeddata\encoded_mutation_sequences_rea.npz"
 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 if os.path.exists(output_path):
     existing_data = np.load(output_path, allow_pickle=True).tolist()  # Convert to list for easy appending

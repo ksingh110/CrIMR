@@ -1,18 +1,52 @@
 import gzip
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-#Krishay add
-def augument_dna (sequence, copies):
-    return [SeqRecord(sequence.seq, id=f"{sequence.id}_augmented_{i+1}", description="Augumented DNA")
-        for i in range (copies)]
-aug_copies = 1000 #Add the number of sequences needed
-#Krishay add this
-input_file =""
-ouput_file = ""
-with gzip.open('input_file','rt') as input_handle:
-    sequences = list(SeqIO.parse(input_handle, "fasta"))
-augument_dna = []
-for sequences in sequences: 
-    augument_dna.extend(augument_dna(sequences ,aug_copies))
-with gzip.open('output_file','wt') as output_handle:
-    sequences = list(SeqIO.parse(output_handle, "fasta"))
+import nlpaug.augmenter.char as nac
+import random
+
+input_file = "FILE PATH"
+output_file = "FILE PATH"
+def read_fasta(file_path):
+    with gzip.open(file_path, "rt") as handle:
+        sequences = list(SeqIO.parse(handle, "fasta"))
+    return sequences
+
+def augment_sequence(sequence, mutation_type, aug):
+    if mutation_type == "insert":
+        augmented_seq = aug.augment(str(sequence.seq))
+    elif mutation_type == "substitute":
+        augmented_seq = aug.augment(str(sequence.seq))
+    elif mutation_type == "swap":
+        augmented_seq = aug.augment(str(sequence.seq))
+    elif mutation_type == "delete":
+        augmented_seq = aug.augment(str(sequence.seq))
+    return augmented_seq
+
+def write_fasta(sequences, output_file):
+    with gzip.open(output_file, "wt") as handle:
+        SeqIO.write(sequences, handle, "fasta")
+
+sequences = read_fasta(input_file)
+        
+type_mutation = ("insert", "substitute", "swap", "delete")
+mutation = random.choice(type_mutation)
+nucleotides = ("A", "T", "G", "C")
+
+augmented_sequences = []
+for seq in sequences:
+    mutation = random.choice(type_mutation)  # Randomly select a mutation type
+    if mutation == "insert":
+        aug = nac.RandomCharAug(action="insert", aug_char_p=0.1)
+    elif mutation == "substitute":
+        aug = nac.RandomCharAug(action="substitute", aug_char_p=0.1)
+    elif mutation == "swap":
+        aug = nac.RandomCharAug(action="swap", aug_char_p=0.1)
+    elif mutation == "delete":
+        aug = nac.RandomCharAug(action="delete", aug_char_p=0.1)
+
+    augmented_seq = augment_sequence(seq, mutation, aug) 
+    augmented_sequences.append(SeqRecord(augmented_seq, id=f"{seq.id}_augmented", description="Augmented DNA sequence"))
+
+write_fasta(augmented_sequences, output_file)
+
+print(f"Augmented DNA saved to '{output_file}'")

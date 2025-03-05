@@ -9,13 +9,16 @@ from Bio import SeqIO
 # File paths
 input_file = "E:\\cry1controlsequences (1).gz"
 output_file = "E:\\datasets\\processeddata\\AUGMENTEDCONTROLWORKS.gz"
+
 def get_CRY1_gene():
     response = requests.get("https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr12;start=106991364;end=107093549")
     if response.status_code == 200:
         return response.json().get("dna", "").upper()
     else:
         return None
+
 cry1 = get_CRY1_gene()
+
 # Read original sequences
 def read_fasta(file_path):
     with gzip.open(file_path, "rt") as handle:
@@ -28,7 +31,7 @@ def augment_sequence(sequence, aug):
 
 # Save sequences as a compressed NumPy array
 def write_gz_file(sequences, output_file):
-    with gzip.open(output_file, "wb") as handle:
+    with gzip.open(output_file, "ab") as handle:  # Open in append mode ("ab" instead of "wb")
         np.save(handle, np.array(sequences))
 
 # Mutation types
@@ -57,21 +60,22 @@ for _ in range(num_augmentations_per_seq):
     print(augmented_seq_list)
     print(f"Generated {len(augmented_seq_list)} augmented sequences.")
 
-        # Debugging: Check before extending
+    # Debugging: Check before extending
     print(f"Before extending: {len(augmented_sequences)} stored sequences.")
     augmented_sequences.extend(augmented_seq_list)
 
-        # Debugging: Check after extending
+    # Debugging: Check after extending
     print(f"After extending: {len(augmented_sequences)} stored sequences.")
         
-        # Save in batches
+    # Save in batches
     if len(augmented_sequences) >= batch:
         print(f"Saving {len(augmented_sequences)} sequences...")
+        # Appending augmented sequences to the existing file
         write_gz_file(augmented_sequences, output_file)
         total_saved += len(augmented_sequences)
         print(f"Total saved so far: {total_saved}")
             
-        augmented_sequences = []  # Reset batch
+        augmented_sequences = []  # Reset batch after saving
 
 # Save any remaining sequences
 if augmented_sequences:

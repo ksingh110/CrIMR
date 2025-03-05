@@ -6,35 +6,43 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
 from sklearn.model_selection import train_test_split
 
-data = np.load("E:/datasets/processeddata/encoded_mutation_sequences.npz")
+mutated_data = np.load("E:/datasets/processeddata/mutated_sequences.npz")
+nonmutated_data = np.load("E:/datasets/processeddata/nonmutated_sequences.npz")
 
-if len(data.files) == 0:
-    raise ValueError("The file does not contain any arrays and does not work.")
+def load_sequences(data, label):
+    encoded_sequences = None
+    input_shape = None
+    
+    for key in data.files:
+        temp_sequences = data[key]
+        print(f"Checking key '{key}': shape {temp_sequences.shape}")  # Debugging
 
-encoded_sequences = None  
-input_shape = None  
+        if temp_sequences.ndim == 2:  # If 2D, reshape to 3D for LSTM
+            temp_sequences = np.expand_dims(temp_sequences, axis=1)  # (samples, 1, features)
 
-for key in data.files:
-    temp_sequences = data[key]
-    print(f"Checking key '{key}': shape {temp_sequences.shape}")  # Debugging
+        if temp_sequences.ndim == 3:
+            encoded_sequences = temp_sequences
+            input_shape = (encoded_sequences.shape[1], encoded_sequences.shape[2])
+            print(f"Using key '{key}' with reshaped shape {encoded_sequences.shape}")
+            break
+        else:
+            print(f"Skipping '{key}': Unexpected shape {temp_sequences.shape}")
 
-    if temp_sequences.ndim == 2:  # If 2D, reshape to 3D for LSTM
-        temp_sequences = np.expand_dims(temp_sequences, axis=1)  # (samples, 1, features)
+    if encoded_sequences is None:
+        raise ValueError(f"No valid encoded sequences found in {label} file.")
 
-    if temp_sequences.ndim == 3:
-        encoded_sequences = temp_sequences
-        input_shape = (encoded_sequences.shape[1], encoded_sequences.shape[2])
-        print(f"Using key '{key}' with reshaped shape {encoded_sequences.shape}")
-        break
-    else:
-        print(f"Skipping '{key}': Unexpected shape {temp_sequences.shape}")
+    return encoded_sequences, input_shape
 
-if encoded_sequences is None:
-    raise ValueError("No valid encoded sequences found in the file.")
+mutated_sequences, input_shape = load_sequences(mutated_data, "mutated")
+nonmutated_sequences, _ = load_sequences(nonmutated_data, "nonmutated")
 
-y = np.random.randint(0, 2, size=encoded_sequences.shape[0])  # Random labels
+mutated_labels = np.ones(mutated_sequences.shape[0])  # 1 for mutated
+nonmutated_labels = np.zeros(nonmutated_sequences.shape[0])  # 0 for non-mutated
 
-x_train, x_test, y_train, y_test = train_test_split(encoded_sequences, y, random_state=42, test_size=0.2)
+X = np.concatenate((mutated_sequences, nonmutated_sequences), axis=0)
+y = np.concatenate((mutated_labels, nonmutated_labels), axis=0)
+
+x_train, x_test, y_train, y_test = train_test_split(X, y, random_state=42, test_size=0.2, stratify=y)
 
 def rnn_model(input_shape):
     model = Sequential([
@@ -61,7 +69,7 @@ print("\n🔹 First 10 Predictions vs Actual Values 🔹")
 for i in range(10):
     print(f"Sample {i+1}: Actual = {y_test[i]}, Predicted Probability = {predictions[i]:.4f}")
 
-save_path = "FILE PATH"
+save_path = "prediction_plots/"
 os.makedirs(save_path, exist_ok=True)
 
 plt.figure(figsize=(8, 6))
@@ -72,4 +80,4 @@ plt.title("Distribution of Predicted Probabilities")
 plt.savefig(save_path + "histogram_predictions.png")  
 plt.show()
 
-print(f"\n✅ Plots saved in '{save_path}' folder.")
+print(f"\n Plots saved in '{save_path}' folder.")

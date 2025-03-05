@@ -2,13 +2,21 @@ import gzip
 import random
 import numpy as np
 import nlpaug.augmenter.char as nac
-import time
 import requests
 from Bio import SeqIO
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+import os
 
 # File paths
 input_file = "E:\\cry1controlsequences (1).gz"
-output_file = "E:\\datasets\\processeddata\\AUGMENTEDCONTROLWORKS.gz"
+output_file = "E:\\datasets\\processeddata\\AUGMENTEDCONTROLWORKS12345678.npz"
+
+# Load existing data correctly
+if os.path.exists(output_file):
+    with np.load(output_file, allow_pickle=True) as data:
+        existing_data = list(data["arr_0"])  # Retrieve stored array as list
+else:
+    existing_data = []
 
 def get_CRY1_gene():
     response = requests.get("https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr12;start=106991364;end=107093549")
@@ -26,13 +34,23 @@ def read_fasta(file_path):
 
 # Augment sequence function
 def augment_sequence(sequence, aug):
-    augmented_seqs = aug.augment(sequence)  # Returns a list of sequences
-    return augmented_seqs
+    return aug.augment(sequence)  # Returns a list of sequences
 
-# Save sequences as a compressed NumPy array
-def write_gz_file(sequences, output_file):
-    with gzip.open(output_file, "ab") as handle:  # Open in append mode ("ab" instead of "wb")
-        np.save(handle, np.array(sequences))
+# One-Hot Encoding Function
+def onehotencoder(fasta_sequence, max_length = 102500):
+    sequence_array = np.array(list(fasta_sequence))
+    label_encoder = LabelEncoder()
+    integer_encoded = label_encoder.fit_transform(sequence_array)
+    onehotencoder = OneHotEncoder(sparse_output=False, dtype = np.float32)
+    integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
+    onehot_sequence = onehotencoder.fit_transform(integer_encoded).astype(np.float32)
+    if onehot_sequence.shape[0] < max_length:
+        pad_size = max_length - onehot_sequence.shape[0]
+        padding = np.zeros((pad_size, onehot_sequence.shape[1]))
+        onehot_sequence = np.vstack([onehot_sequence, padding])
+    else:
+        onehot_sequence = onehot_sequence[:max_length, :] 
+    return(onehot_sequence.flatten())
 
 # Mutation types
 type_mutation = ("insert", "substitute", "swap", "delete")
@@ -40,7 +58,7 @@ type_mutation = ("insert", "substitute", "swap", "delete")
 # Read sequences
 sequences = read_fasta(input_file)
 augmented_sequences = []
-batch = 200
+batch = 50
 num_augmentations_per_seq = 4000
 total_saved = 0
 
@@ -50,36 +68,33 @@ for _ in range(num_augmentations_per_seq):
 
     if mutation == "insert":
         aug = nac.RandomCharAug(action="insert", aug_char_p=0.02)
-
     elif mutation == "swap":
         aug = nac.RandomCharAug(action="swap", aug_char_p=0.02)
     elif mutation == "delete":
         aug = nac.RandomCharAug(action="delete", aug_char_p=0.02)
 
     augmented_seq_list = augment_sequence(original_seq, aug)
-    print(augmented_seq_list)
+
     print(f"Generated {len(augmented_seq_list)} augmented sequences.")
 
-    # Debugging: Check before extending
-    print(f"Before extending: {len(augmented_sequences)} stored sequences.")
-    augmented_sequences.extend(augmented_seq_list)
+    for seq in augmented_seq_list:
+        encoded_seq = onehotencoder(seq)  # Process each sequence
+        augmented_sequences.append(encoded_seq)
 
-    # Debugging: Check after extending
-    print(f"After extending: {len(augmented_sequences)} stored sequences.")
-        
     # Save in batches
     if len(augmented_sequences) >= batch:
+        existing_data.extend(augmented_sequences)
         print(f"Saving {len(augmented_sequences)} sequences...")
-        # Appending augmented sequences to the existing file
-        write_gz_file(augmented_sequences, output_file)
+        
+        # Use dictionary format to avoid overwriting the `.npz` file
+        np.savez_compressed(output_file, sequences=np.array(existing_data, dtype=object))
+        
         total_saved += len(augmented_sequences)
         print(f"Total saved so far: {total_saved}")
-            
+        
         augmented_sequences = []  # Reset batch after saving
 
 # Save any remaining sequences
-if augmented_sequences:
-    print(f"Final save: {len(augmented_sequences)} sequences.")
-    write_gz_file(augmented_sequences, output_file)
-    total_saved += len(augmented_sequences)
-    print(f"Final total saved: {total_saved}")
+
+
+print(f"Final augmented sequences count: {len(existing_data)}")

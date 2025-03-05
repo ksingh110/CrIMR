@@ -7,8 +7,8 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
 from sklearn.model_selection import train_test_split
 
-mutated_data = np.load("E:/datasets/processeddata/mutated_sequences.npz")
-nonmutated_data = np.load("E:/datasets/processeddata/nonmutated_sequences.npz")
+mutated_data = np.load("E:\\datasets\processeddata\encoded_mutation_sequences_rea.npz")
+nonmutated_data = np.load("E:\datasets\processeddata\CRY1ENCODEDCONTROLWORKS.npz")
 
 def load_sequences(data, label):
     encoded_sequences = None

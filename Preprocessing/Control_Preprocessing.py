@@ -4,7 +4,7 @@ import os
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 
 # Output file path
-output_path = "E:\\datasets\\processeddata\\CRY1ENCODEDCONTROLWORKS.npz"
+output_path = "E:\\datasets\\processeddata\\CRY1ENCODEDCONTROLWORKS1.npz"
 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
 # Load existing data if available
@@ -43,7 +43,7 @@ def onehotencoder(fasta_sequence, max_length=102500, max_columns=14):
     return onehot_sequence
 
 # Process sequences in batches
-batch = 200
+batch = 4000
 outputcontrol = []  # List to store processed sequences
 with gzip.open("E:\\datasets\\processeddata\\AUGMENTEDCONTROLWORKS.gz", "rb") as f:  # Open in binary mode
     sequences = np.load(f, allow_pickle=True)  # Load the file as a NumPy array

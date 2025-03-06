@@ -51,9 +51,9 @@ def process_mutations(csv_path, cry1_seq, output_path):
 
     # Process each row in the CSV
     seq_count = 0
-    batch = 100
+    batch = 250
     rows_save = []
-    max_seq_count = 100
+    max_seq_count = 750
     for index, row in df.iterrows():
         if seq_count >= max_seq_count:
             print("Reached maximum sequence count.")
@@ -74,17 +74,17 @@ def process_mutations(csv_path, cry1_seq, output_path):
 
             if len(rows_save) >= batch:
                 existing_data.extend(rows_save)
-                np.savez_compressed(output_path, arr_0=np.array(existing_data, dtype=object))
+                np.savez_compressed(output_path, arr_0=np.array(existing_data))
                 rows_save = []
     
     if rows_save:
         existing_data.extend(rows_save)
-        np.savez_compressed(output_path, arr_0=np.array(existing_data, dtype=object))
+        np.savez_compressed(output_path, arr_0=np.array(existing_data))
     print(f"Processed {seq_count} mutated sequences and saved to {output_path}.")
 
 # Path to CSV file with mutations and output path
 csv_file = "cry1realvariations (1).csv"
-output_file = "E:\\datasets\\processeddata\\MUTATIONDATA_TRY.npz"
+output_file = "E:\\datasets\\processeddata\\MUTATION_DATA_TRAINING_750.npz"
 
 # Fetch CRY1 sequence and process mutations
 cry1_seq = get_CRY1_gene()

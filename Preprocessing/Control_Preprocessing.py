@@ -54,7 +54,7 @@ def augment_sequence(seq, substitution_prob=0.1, deletion_prob=0.1, insertion_pr
     return augmented_seq
 
 # Process augmented sequence and save to output file
-def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=100):
+def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=750):
     # Initialize existing data for appending
     if os.path.exists(output_path):
         existing_data = np.load(output_path, allow_pickle=True)["arr_0"].tolist()
@@ -62,7 +62,7 @@ def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=100
         existing_data = []
 
     seq_count = 0
-    batch = 50
+    batch = 250
     rows_save = []
 
     # Generate augmented sequences and save
@@ -77,17 +77,17 @@ def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=100
 
             if len(rows_save) >= batch:
                 existing_data.extend(rows_save)
-                np.savez_compressed(output_path, arr_0=np.array(existing_data, dtype=object))
+                np.savez_compressed(output_path, arr_0=np.array(existing_data))
                 rows_save = []
 
     if rows_save:
         existing_data.extend(rows_save)
-        np.savez_compressed(output_path, arr_0=np.array(existing_data, dtype=object))
+        np.savez_compressed(output_path, arr_0=np.array(existing_data))
     
     print(f"Processed {seq_count} augmented sequences and saved to {output_path}.")
 
 # Path to output file
-output_file = "E:\\datasets\\processeddata\\AUGMENTED_DATA.npz"
+output_file = "E:\\datasets\\processeddata\\AUGMENTED_DATA_TRAINING_750.npz"
 
 # Fetch CRY1 sequence and process data with augmentation
 cry1_seq = get_CRY1_gene()

@@ -9,7 +9,7 @@ import os
 
 # File paths
 input_file = "E:\\cry1controlsequences (1).gz"
-output_file = "E:\\datasets\\processeddata\\agAUGMENTEDCONTROLTRY.npz"
+output_file = "E:\\datasets\\processeddata\\AUGMENTEDCONTROLWORKS12345678.npz"
 
 # Load existing data correctly
 if os.path.exists(output_file):
@@ -34,7 +34,7 @@ def read_fasta(file_path):
 
 # Augment sequence function
 def augment_sequence(sequence, aug):
-    return aug.augment(sequence)[0]  # Returns a list of sequences
+    return aug.augment(sequence)  # Returns a list of sequences
 
 # One-Hot Encoding Function
 def onehotencoder(fasta_sequence, max_length = 102500):
@@ -50,7 +50,7 @@ def onehotencoder(fasta_sequence, max_length = 102500):
         onehot_sequence = np.vstack([onehot_sequence, padding])
     else:
         onehot_sequence = onehot_sequence[:max_length, :] 
-    return(onehot_sequence)
+    return(onehot_sequence.flatten())
 
 # Mutation types
 type_mutation = ("insert", "substitute", "swap", "delete")
@@ -73,7 +73,7 @@ for _ in range(num_augmentations_per_seq):
     elif mutation == "delete":
         aug = nac.RandomCharAug(action="delete", aug_char_p=0.02)
 
-    augmented_seq_list = onehotencoder(augment_sequence(original_seq, aug))
+    augmented_seq_list = augment_sequence(original_seq, aug)
 
     print(f"Generated {len(augmented_seq_list)} augmented sequences.")
 
@@ -87,7 +87,7 @@ for _ in range(num_augmentations_per_seq):
         print(f"Saving {len(augmented_sequences)} sequences...")
         
         # Use dictionary format to avoid overwriting the `.npz` file
-        np.savez_compressed(output_file, sequences=np.array(existing_data))
+        np.savez_compressed(output_file, sequences=np.array(existing_data, dtype=object))
         
         total_saved += len(augmented_sequences)
         print(f"Total saved so far: {total_saved}")

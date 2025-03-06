@@ -1,90 +1,97 @@
-import gzip
 import numpy as np
-import os
+import requests
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+import random
+import os
 
-# Output file path
-output_path = "E:\\datasets\\processeddata\\CRY1ENCODEDCONTROLWORKS1.npz"
-os.makedirs(os.path.dirname(output_path), exist_ok=True)
+# Function to fetch CRY1 gene sequence from UCSC API
+def get_CRY1_gene():
+    response = requests.get("https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr12;start=106991364;end=107093549")
+    if response.status_code == 200:
+        return response.json().get("dna", "").upper()
+    else:
+        return None
 
-# Load existing data if available
-if os.path.exists(output_path):
-    existing_data = np.load(output_path, allow_pickle=True)['arr_0']
-    print(f"Loaded existing data: {existing_data.shape}")
-else:
-    existing_data = np.empty((0, 102500, 14), dtype=np.float32)
-
-# One-hot encoding function
-def onehotencoder(fasta_sequence, max_length=102500, max_columns=14):
+# One-hot encode sequence and return a 1D array
+def onehotencoder(fasta_sequence, max_length=102500):
     sequence_array = np.array(list(fasta_sequence))
-
     label_encoder = LabelEncoder()
     integer_encoded = label_encoder.fit_transform(sequence_array)
-
     onehotencoder = OneHotEncoder(sparse_output=False, dtype=np.float32)
-    integer_encoded = integer_encoded.reshape(-1, 1)
-    onehot_sequence = onehotencoder.fit_transform(integer_encoded)
-
-    # Ensure uniform length by padding or truncating sequences to `max_length`
+    integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
+    onehot_sequence = onehotencoder.fit_transform(integer_encoded).astype(np.float32)
+    
     if onehot_sequence.shape[0] < max_length:
         pad_size = max_length - onehot_sequence.shape[0]
-        padding = np.zeros((pad_size, onehot_sequence.shape[1]), dtype=np.float32)
+        padding = np.zeros((pad_size, onehot_sequence.shape[1]))
         onehot_sequence = np.vstack([onehot_sequence, padding])
-    elif onehot_sequence.shape[0] > max_length:
-        onehot_sequence = onehot_sequence[:max_length, :]  # Truncate if too long
+    else:
+        onehot_sequence = onehot_sequence[:max_length, :]
+    return onehot_sequence.flatten()
 
-    # Ensure uniform number of columns
-    if onehot_sequence.shape[1] < max_columns:
-        pad_columns = max_columns - onehot_sequence.shape[1]
-        padding_columns = np.zeros((onehot_sequence.shape[0], pad_columns), dtype=np.float32)
-        onehot_sequence = np.hstack([onehot_sequence, padding_columns])  # Pad columns
-    elif onehot_sequence.shape[1] > max_columns:
-        onehot_sequence = onehot_sequence[:, :max_columns]  # Truncate columns if too many
+# Augment sequence by introducing substitutions, deletions, or insertions
+def augment_sequence(seq, substitution_prob=0.1, deletion_prob=0.1, insertion_prob=0.1):
+    augmented_seq = list(seq)
+    seq_len = len(augmented_seq)
 
-    return onehot_sequence
+    for i in range(seq_len):
+        # Substitution
+        if random.random() < substitution_prob:
+            augmented_seq[i] = random.choice(['A', 'G', 'C', 'T'])
+        
+        # Deletion
+        elif random.random() < deletion_prob:
+            augmented_seq[i] = ''
+        
+        # Insertion
+        elif random.random() < insertion_prob:
+            augmented_seq.insert(i, random.choice(['A', 'G', 'C', 'T']))
+            seq_len += 1  # Increase sequence length after insertion
+            i += 1  # Skip the next index after insertion to avoid double counting
 
-# Process sequences in batches
-batch_size = 1000
-outputcontrol = []  # List to store processed sequences
+    # Join the list back to a string after mutation
+    augmented_seq = ''.join(augmented_seq)
+    return augmented_seq
 
-with gzip.open("E:\\datasets\\processeddata\\AUGMENTEDCONTROLWORKS.gz", "rb") as f:  # Open in binary mode
-    sequences = np.load(f, allow_pickle=True)  # Load the file as a NumPy array
-    print(f"Loaded {len(sequences)} sequences from AUGMENTEDCONTROLWORKS.gz")
+# Process augmented sequence and save to output file
+def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=100):
+    # Initialize existing data for appending
+    if os.path.exists(output_path):
+        existing_data = np.load(output_path, allow_pickle=True)["arr_0"].tolist()
+    else:
+        existing_data = []
 
-    for idx, seq in enumerate(sequences):
-        # Apply one-hot encoding
-        encoded_seq = onehotencoder(seq)
+    seq_count = 0
+    batch = 50
+    rows_save = []
 
-        # Ensure correct shape before saving
-        if encoded_seq.shape == (102500, 14):
-            outputcontrol.append(encoded_seq)
-            print(f"Processed sequence {idx + 1}, Shape: {encoded_seq.shape}")
-        else:
-            print(f"Skipping sequence {idx + 1} due to incorrect shape: {encoded_seq.shape}")
+    # Generate augmented sequences and save
+    while seq_count < num_augmented_sequences:
+        # Augment the sequence
+        augmented_seq = augment_sequence(cry1_seq)
+        print(f"Processed augmented sequence {seq_count + 1}.")
+        if augmented_seq:
+            encoded_seq = onehotencoder(augmented_seq)
+            seq_count += 1
+            rows_save.append(encoded_seq)
 
-        # Save in batches
-        if len(outputcontrol) >= batch_size:
-            batch_array = np.array(outputcontrol, dtype=np.float32)  # Convert list to NumPy array
+            if len(rows_save) >= batch:
+                existing_data.extend(rows_save)
+                np.savez_compressed(output_path, arr_0=np.array(existing_data, dtype=object))
+                rows_save = []
 
-            # Debugging: Print current count
-            print(f"Appending batch of {batch_array.shape} to existing_data (Current size: {existing_data.shape})")
+    if rows_save:
+        existing_data.extend(rows_save)
+        np.savez_compressed(output_path, arr_0=np.array(existing_data, dtype=object))
+    
+    print(f"Processed {seq_count} augmented sequences and saved to {output_path}.")
 
-            existing_data = np.concatenate((existing_data, batch_array), axis=0)  # Append batch to existing data
+# Path to output file
+output_file = "E:\\datasets\\processeddata\\AUGMENTED_DATA.npz"
 
-            # Save updated dataset
-            np.savez_compressed(output_path, arr_0=existing_data)
-            print(f"Saved {batch_array.shape[0]} new sequences. Total saved: {existing_data.shape[0]}")
-
-            outputcontrol = []  # Clear batch after saving
-
-# Save any remaining sequences that weren't saved in the last batch
-if outputcontrol:
-    batch_array = np.array(outputcontrol, dtype=np.float32)  # Stack remaining sequences
-    print(f"Appending final batch of {batch_array.shape} to existing_data")
-
-    existing_data = np.concatenate((existing_data, batch_array), axis=0)  # Append remaining data
-
-    np.savez_compressed(output_path, arr_0=existing_data)
-    print(f"Final save: {batch_array.shape[0]} sequences. Total saved: {existing_data.shape[0]}")
-
-print("All sequences have been processed and saved.")
+# Fetch CRY1 sequence and process data with augmentation
+cry1_seq = get_CRY1_gene()
+if cry1_seq:
+    process_data_augmentation(cry1_seq, output_file)
+else:
+    print("Failed to fetch CRY1 gene sequence.")

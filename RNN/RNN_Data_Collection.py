@@ -10,10 +10,9 @@ from sklearn.metrics import roc_curve, roc_auc_score
 import tensorflow as tf
 from sklearn.ensemble import IsolationForest
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
-from sklearn.metrics import roc_curve, roc_auc_score
+
 # Reset TensorFlow graph
-tf.compat.v1.reset_default_graph()
+tf.compat.v1.enable_eager_execution()
 
 # Paths and data
 checkpoint_path = "E:/my_models/750_if_new_best_model.h5"
@@ -131,113 +130,64 @@ y = np.concatenate([mutated_labels, nonmutated_labels], axis=0)
 
 x_train, x_test, y_train, y_test = train_test_split(X_with_anomalies, y, random_state=42, test_size=0.2, stratify=y)
 
-# RNN Model
-def rnn_model(input_shape):
-    model = Sequential([  
-        LSTM(32, input_shape=input_shape, return_sequences=False, activation="relu"),  
-        Dropout(0.5),  
-        Dense(1, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(0.01))  
-    ])  
-    model.compile(optimizer="adamw", loss='binary_crossentropy', metrics=['accuracy'])  
-    return model
+model1_path = "E:\\my_models\\750_if_new_best_model.h5"
+model2_path = "E:\\my_models\\750_best_model.h5"
 
-def reset_rnn(input_shape):
-    # Recreate the model to reset weights
-    model = rnn_model(input_shape)
-    return model
+# Load the saved RNN models
+model1 = load_model(model1_path)
+model2 = load_model(model2_path)
 
-# Plotting function
-def plot_learning_curve(history, save_path):
-    # Extract training and validation loss (or accuracy)
-    training_loss = history.history['loss']
-    validation_loss = history.history['val_loss']
-    training_acc = history.history['accuracy']
-    validation_acc = history.history['val_accuracy']
+# Evaluate models on test set
+loss1, acc1 = model1.evaluate(x_test, y_test)
+loss2, acc2 = model2.evaluate(x_test, y_test)
 
-    epochs = range(1, len(training_loss) + 1)
+# Get predictions
+y_pred1 = model1.predict(x_test)
+y_pred2 = model2.predict(x_test)
 
-    # Plot loss curves
-    plt.figure(figsize=(12, 6))
+# Calculate ROC Curve and AUC
+fpr1, tpr1, _ = roc_curve(y_test, y_pred1)
+fpr2, tpr2, _ = roc_curve(y_test, y_pred2)
+roc_auc1 = roc_auc_score(y_test, y_pred1)
+roc_auc2 = roc_auc_score(y_test, y_pred2)
 
-    # Loss plot
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs, training_loss, label='Training Loss')
-    plt.plot(epochs, validation_loss, label='Validation Loss')
-    plt.title('Loss Curve')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
+# Classification Reports
+report1 = classification_report(y_test, (y_pred1 > 0.5))
+report2 = classification_report(y_test, (y_pred2 > 0.5))
 
-    # Accuracy plot
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs, training_acc, label='Training Accuracy')
-    plt.plot(epochs, validation_acc, label='Validation Accuracy')
-    plt.title('Accuracy Curve')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend()
+# Plotting comparison of accuracies
+plt.figure(figsize=(10, 6))
 
-    plt.tight_layout()
-    plt.savefig(save_path)
+# Plot training accuracy
+plt.plot(history1.history['accuracy'], label='Model 1 (Training)', color='blue')
+plt.plot(history2.history['accuracy'], label='Model 2 (Training)', color='orange')
 
-# Reset model
-model = reset_rnn(input_shape)
+# Plot validation accuracy
+plt.plot(history1.history['val_accuracy'], label='Model 1 (Validation)', color='blue', linestyle='--')
+plt.plot(history2.history['val_accuracy'], label='Model 2 (Validation)', color='orange', linestyle='--')
 
-# Checkpoints and logging
-checkpoint = ModelCheckpoint(checkpoint_path, monitor="val_loss", save_best_only=True, mode="min")
-csv_log = CSVLogger("training_log_new_750_if.csv", append=True)
+# Add labels and title
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.title('Model Accuracy Comparison')
+plt.legend(loc='lower right')
 
-# Fit the model
-rnn_fit = model.fit(x_train, y_train, batch_size=16, epochs=20, verbose=1, validation_data=(x_test, y_test), callbacks=[csv_log, checkpoint])
-
-# Evaluate the model
-loss, accuracy = model.evaluate(x_test, y_test)
-print(f"Test Accuracy: {accuracy:.4f}")
-
-# Predictions
-predictions = model.predict(x_test).flatten()
-print("\n🔹 First 10 Predictions vs Actual Values 🔹")
-for i in range(10):
-    print(f"Sample {i+1}: Actual = {y_test[i]}, Predicted Probability = {predictions[i]:.4f}")
-
-# Save plots
-os.makedirs(save_path, exist_ok=True)
-
-# Histogram of predictions
-plt.figure(figsize=(14, 10))
-plt.hist(predictions, bins=20, edgecolor='black', alpha=0.7)
-plt.xlabel("Predicted Probability")
-plt.ylabel("Count")
-plt.title("Distribution of Predicted Probabilities")
-plt.savefig(save_path + "histogram_predictions.png")  
+# Show the plot
 plt.show()
 
-# Calculate the ROC curve and AUC
-fpr, tpr, thresholds = roc_curve(y_test, predictions)
-roc_auc = roc_auc_score(y_test, predictions)
-
-# Plot ROC curve
-plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, color='blue', label=f'ROC curve (AUC = {roc_auc:.4f})')
+# ROC Curves plot
+plt.figure(figsize=(10, 6))
+plt.plot(fpr1, tpr1, color='blue', lw=2, label=f'Model 1 AUC = {roc_auc1:.2f}')
+plt.plot(fpr2, tpr2, color='orange', lw=2, label=f'Model 2 AUC = {roc_auc2:.2f}')
 plt.plot([0, 1], [0, 1], color='gray', linestyle='--')
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('ROC Curve')
+plt.title('Receiver Operating Characteristic (ROC)')
 plt.legend(loc='lower right')
-plt.savefig(save_path + "750_new_if_roc_curve.png")
+plt.show()
 
-print(f"Area Under the Curve (AUC): {roc_auc:.4f}")
-
-# Classification report
-report = classification_report(y_test, (predictions > 0.5).astype(int))
-print("\nClassification Report:" + report)
-report = classification_report(y_test, (predictions > 0.5).astype(int), output_dict=True)
-
-# Convert the dictionary into a DataFrame and transpose it
-report_df = pd.DataFrame(report).transpose()
-
-# Save the report to a CSV file
-report_df.to_csv("750_new_if_classification_report.csv")
-
-# Plot learning curves
-plot_learning_curve(rnn_fit, save_path="750_new_if_learning_curve")
+# Print classification reports
+print("Model 1 Classification Report:")
+print(report1)
+print("\nModel 2 Classification Report:")
+print(report2)

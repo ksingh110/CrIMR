@@ -11,14 +11,16 @@ import matplotlib.pyplot as plt
 from tensorflow.keras import backend as K
 import pandas as pd
 import tensorflow as tf
+from tensorflow.keras.regularizers import l2
 
 # Generate classification report, which includes precision, recall, and F1-score
 tf.compat.v1.reset_default_graph()
 
-checkpoint_path = "E:/my_models/750_best_model.h5"
-save_path = "E:/my_plots/750_prediction_plots/"
-mutated_data = np.load("E:\datasets\processeddata\MUTATION_DATA_TRAINING_750.npz", allow_pickle=True, mmap_mode='r')
-nonmutated_data = np.load("E:\\datasets\\processeddata\\AUGMENTED_DATA_TRAINING_750.npz", allow_pickle=True, mmap_mode='r')
+checkpoint_path = "E:/my_models/1000_new_best_model.h5"
+save_path = "E:/my_plots/1000_new_prediction_plots/"
+mutated_data = np.load("E:\datasets\processeddata\MUTATION_DATA_TRAINING_1000.npz", allow_pickle=True, mmap_mode='r')
+nonmutated_data = np.load("E:\\datasets\\processeddata\\AUGMENTED_DATA_TRAINING_1000.npz", allow_pickle=True, mmap_mode='r')
+
 
 
 def load_sequences(data, label):
@@ -58,23 +60,57 @@ x_train, x_test, y_train, y_test = train_test_split(X, y, random_state=42, test_
 
 def rnn_model(input_shape):
     model = Sequential([
-        LSTM(32, input_shape=input_shape, return_sequences=False),
-        Dropout(0.5),
-        Dense(1, activation='sigmoid')
+        LSTM(16, input_shape=input_shape, return_sequences=False),
+        Dropout(0.6),
+        Dense(1, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(0.01))
     ])
-    model.compile(optimizer="adam", loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer="adamw", loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
 def reset_rnn(input_shape):
     # Recreate the model to reset weights
     model = rnn_model(input_shape)
     return model
+def plot_learning_curve(history, save_path):
+    # Extract training and validation loss (or accuracy)
+    training_loss = history.history['loss']
+    validation_loss = history.history['val_loss']
+    training_acc = history.history['accuracy']
+    validation_acc = history.history['val_accuracy']
+
+    epochs = range(1, len(training_loss) + 1)
+
+    # Plot loss curves
+    plt.figure(figsize=(12, 6))
+
+    # Loss plot
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, training_loss, label='Training Loss')
+    plt.plot(epochs, validation_loss, label='Validation Loss')
+    plt.title('Loss Curve')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    # Accuracy plot
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, training_acc, label='Training Accuracy')
+    plt.plot(epochs, validation_acc, label='Validation Accuracy')
+    plt.title('Accuracy Curve')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(save_path)
+
+# Plot learning curves
 
 # Reset model
 model = reset_rnn(input_shape)
 
 checkpoint = ModelCheckpoint(checkpoint_path, monitor="val_loss", save_best_only=True, mode="min")
-csv_log = CSVLogger("training_log_750.csv", append=True)
+csv_log = CSVLogger("training_log_new_1000.csv", append=True)
 
 rnn_fit = model.fit(x_train, y_train, batch_size=16, epochs=20, verbose=1, validation_data=(x_test, y_test), callbacks=[csv_log, checkpoint])
 
@@ -113,7 +149,7 @@ plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
 plt.title('ROC Curve')
 plt.legend(loc='lower right')
-plt.savefig(save_path + "750_roc_curve.png")
+plt.savefig(save_path + "1000_new_roc_curve.png")
 
 print(f"Area Under the Curve (AUC): {roc_auc:.4f}")
 
@@ -125,9 +161,9 @@ report = classification_report(y_test, (predictions > 0.5).astype(int), output_d
 report_df = pd.DataFrame(report).transpose()
 
 # Save the report to a CSV file
-report_df.to_csv("750_classification_report.csv")
+report_df.to_csv("1000_new_classification_report.csv")
 
 print("Classification report saved to 'classification_report.csv'.")
 print("\nClassification Report:")
 
-
+plot_learning_curve(rnn_fit,  save_path="1000_new_learning_curve")

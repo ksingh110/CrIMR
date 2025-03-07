@@ -30,7 +30,7 @@ def onehotencoder(fasta_sequence, max_length=102500):
     return onehot_sequence.flatten()
 
 # Augment sequence by introducing substitutions, deletions, or insertions
-def augment_sequence(seq, substitution_prob=0.1, deletion_prob=0.1, insertion_prob=0.1):
+def augment_sequence(seq, substitution_prob=0.33, deletion_prob=0.33, insertion_prob=0.33):
     augmented_seq = list(seq)
     seq_len = len(augmented_seq)
 
@@ -54,7 +54,7 @@ def augment_sequence(seq, substitution_prob=0.1, deletion_prob=0.1, insertion_pr
     return augmented_seq
 
 # Process augmented sequence and save to output file
-def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=750):
+def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=1250):
     # Initialize existing data for appending
     if os.path.exists(output_path):
         existing_data = np.load(output_path, allow_pickle=True)["arr_0"].tolist()
@@ -87,7 +87,7 @@ def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=750
     print(f"Processed {seq_count} augmented sequences and saved to {output_path}.")
 
 # Path to output file
-output_file = "E:\\datasets\\processeddata\\AUGMENTED_DATA_TRAINING_750.npz"
+output_file = "E:\\datasets\\processeddata\\AUGMENTED_DATA_TRAINING_1250_NEW.npz"
 
 # Fetch CRY1 sequence and process data with augmentation
 cry1_seq = get_CRY1_gene()

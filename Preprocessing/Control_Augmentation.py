@@ -67,11 +67,11 @@ for _ in range(num_augmentations_per_seq):
     mutation = random.choice(type_mutation)
 
     if mutation == "insert":
-        aug = nac.RandomCharAug(action="insert", aug_char_p=0.02)
+        aug = nac.RandomCharAug(action="insert", aug_char_p=0.33)
     elif mutation == "swap":
-        aug = nac.RandomCharAug(action="swap", aug_char_p=0.02)
+        aug = nac.RandomCharAug(action="swap", aug_char_p=0.33)
     elif mutation == "delete":
-        aug = nac.RandomCharAug(action="delete", aug_char_p=0.02)
+        aug = nac.RandomCharAug(action="delete", aug_char_p=0.33)
 
     augmented_seq_list = augment_sequence(original_seq, aug)
 

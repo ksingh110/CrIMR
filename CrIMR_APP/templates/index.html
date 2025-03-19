@@ -35,7 +35,8 @@
             max-width: 1600px;
             height: 100%;
             max-height: 800px;
-            padding-top: 60px; /* Adjust for the top bar */
+            padding-top: 80px; /* Adjust for the top bar */
+            
         }
 
         .container {
@@ -43,20 +44,32 @@
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 13, 34, 0.1);
             padding: 40px;
-            width: 100%; /* Make each box take up almost half of the width */
-            max-width: 1000px;
-            height: 100%;
-            max-height: 1000px;
             text-align: center;
         }
         .left-container {
-            width: 45%; /* Set width for the first container */
-            height: 900px; /* Set a fixed height for the first container */
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 13, 34, 0.1);
+            
+            width: 150%; /* Make each box take up almost half of the width */
+            max-width: 1400px;
+            height: 60%;
+            max-height: 800px;
+            text-align: center;
+            margin-top: 45px;
+            margin-left: -80px;
         }
 
         .right-container {
-            width: 100px; /* Set width for the second container */
-            height: 600px; /* Set a fixed height for the second container */
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 13, 34, 0.1);
+            width: 55%; /* Make each box take up almost half of the width */
+            max-width: 600px;
+            height: 90%;
+            max-height: 1400px;
+            text-align: center;
+            margin-top: -70px;
         }
         h1 {
             color: #000b5e;
@@ -178,7 +191,7 @@
 <body>
     <div class="top-bar"></div> <!-- The black top bar -->
     <div class="main-container">
-        <div class="left container">
+        <div class=" container left-container">
             <h1>DSPDiagnosis</h1>
             <h2>Using CrIMR for Delayed Sleep Phase Disorder</h2>
             <form id="prediction-form" enctype="multipart/form-data">
@@ -190,10 +203,10 @@
             <p id="result"></p>
         </div>
         <!-- Second box on the right -->
-        <div class="right container">
-            <h1>Additional Info</h1>
+        <div class="container right-container">
+            <h1>About DSPDiagnosis</h1>
             <h2>Details about the prediction and data</h2>
-            <p>Here you can add more information about the results or display additional data as needed.</p>
+            <p></p>
         </div>
     </div>
 

@@ -6,29 +6,66 @@
     <title>ML Model Prediction</title>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
+            font-family: 'Helvetica', sans-serif;
             margin: 0;
             padding: 0;
             display: flex;
-            justify-content: center;
-            align-items: center;
+            justify-content: flex-start;
+            align-items: flex-start;
             height: 100vh;
+            padding-left: 250px;
+            padding-top: 100px;
+            background: linear-gradient(to top, #000000, #315a81); /* Black to blue gradient */
+        }
+
+        .top-bar {
+            background-color: black;
+            width: 100%;
+            height: 50px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+
+        .main-container {
+            display: flex; /* Flexbox for layout */
+            gap: 50px; /* Space between the two boxes */
+            width: 100%;
+            max-width: 1600px;
+            height: 100%;
+            max-height: 800px;
+            padding-top: 60px; /* Adjust for the top bar */
         }
 
         .container {
             background-color: white;
             border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 8px rgba(0, 13, 34, 0.1);
             padding: 40px;
-            width: 100%;
-            max-width: 600px;
+            width: 100%; /* Make each box take up almost half of the width */
+            max-width: 1000px;
+            height: 100%;
+            max-height: 1000px;
             text-align: center;
         }
+        .left-container {
+            width: 45%; /* Set width for the first container */
+            height: 900px; /* Set a fixed height for the first container */
+        }
 
+        .right-container {
+            width: 100px; /* Set width for the second container */
+            height: 600px; /* Set a fixed height for the second container */
+        }
         h1 {
-            color: #5a5a5a;
+            color: #000b5e;
+            font-size: 36px;
+            border-color: linear-gradient(45deg, #ff9f3f, #c03d00) 1;
+        }
+
+        h2 {
+            color: #000000;
             font-size: 24px;
         }
 
@@ -48,22 +85,76 @@
             padding: 10px;
             width: 80%;
             font-size: 16px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
+            border-radius: 20px;
+            background-image: linear-gradient(45deg, #f87c00, #a43400); /* Gradient background */
+            background-size: 200% 200%; /* Ensure the gradient is larger than the box */
+            animation: gradientBorder 5s infinite linear; /* Apply gradient animation */
+            color: white; /* Make text in the file input button readable */
+            cursor: pointer; /* Change cursor to pointer on hover */
+            outline: none; /* Remove default focus outline */
+            text-align: center; /* Center the text */
+        }
+
+        input[type="file"]::-webkit-file-upload-button {
+            background-color: #315a8193; /* Make the button background transparent */
+            color: inherit; /* Inherit text color from parent */
+            font-size: inherit; /* Use the same font size */
+            border: none; /* Remove the border */
+            cursor: pointer; /* Make it look clickable */
+            padding: 10px 20px;
+            border-radius: 10px;
+            box-shadow: none; /* Remove default shadow */
+            transition: all 0.3s ease; /* Smooth transition for hover effect */
+        }
+
+        input[type="file"]:hover::-webkit-file-upload-button {
+            background-color: #315a81; /* Hover effect with a subtle change */
+            color: white; /* Text color when hovered */
+            box-shadow: 0 0 25px rgba(49, 90, 129, 0.6); /* Add shadow on hover */
+        }
+
+        @keyframes gradientBorder {
+            0% {
+                background-position: 0% 50%;
+                box-shadow: 0 0 0 5px rgba(240, 75, 0, 0.5);
+            }
+            50% {
+                background-position: 100% 50%;
+                box-shadow: 0 0 0 5px rgba(189, 64, 7, 0.5);
+            }
+            100% {
+                background-position: 0% 50%;
+                box-shadow: 0 0 0 5px rgba(240, 75, 0, 0.5);
+            }
         }
 
         button {
             padding: 12px 25px;
-            background-color: #5f8ad5;
+            background-image: linear-gradient(45deg, #000000, #3f73a3); /* Gradient background */
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
+            background-size: 200% 200%; /* Make the gradient larger than the button */
+            animation: gradientButton 5s infinite linear; /* Apply gradient animation */
         }
 
         button:hover {
-            background-color: #5788dc;
+            background-color: #5788dc; /* Hover effect with a lighter color */
+            box-shadow: 0 0 25px rgba(49, 90, 129, 0.6); /* Add shadow on hover */
+        }
+
+        @keyframes gradientButton {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
         }
 
         h3 {
@@ -85,15 +176,25 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>DSPDiagnosis: Using CrIMR for Delayed Sleep Phase Disorder</h1>
-        <form id="prediction-form" enctype="multipart/form-data">
-            <label for="fileInput">Upload a file:</label>
-            <input type="file" id="fileInput" name="fileInput" required>
-            <button type="submit">Predict</button>
-        </form>
-        <h3>Prediction Result:</h3>
-        <p id="result"></p>
+    <div class="top-bar"></div> <!-- The black top bar -->
+    <div class="main-container">
+        <div class="left container">
+            <h1>DSPDiagnosis</h1>
+            <h2>Using CrIMR for Delayed Sleep Phase Disorder</h2>
+            <form id="prediction-form" enctype="multipart/form-data">
+                <label for="fileInput">Upload a file:</label>
+                <input type="file" id="fileInput" name="fileInput" required>
+                <button type="submit">Predict</button>
+            </form>
+            <h3>Prediction Result:</h3>
+            <p id="result"></p>
+        </div>
+        <!-- Second box on the right -->
+        <div class="right container">
+            <h1>Additional Info</h1>
+            <h2>Details about the prediction and data</h2>
+            <p>Here you can add more information about the results or display additional data as needed.</p>
+        </div>
     </div>
 
     <script>

@@ -53,20 +53,13 @@ def load_and_get_anomaly_scores(csv_file):
 
 # Get anomaly scores
 anomaly_scores, _, _, _ = load_and_get_anomaly_scores(csv_file)
-def load_data_in_batches(file_path, batch_size=1000):
-    data = np.load(file_path, allow_pickle=True, mmap_mode='r')
-    keys = list(data.files)
-    for i in range(0, len(keys), batch_size):
-        batch_keys = keys[i:i+batch_size]
-        batch_data = [data[key] for key in batch_keys]
-        yield np.array(batch_data)
 
 # Function to load sequences and their labels
-def load_sequences(data, label, file_path, batch_size=1000):
+def load_sequences(data, label):
     encoded_sequences = None
     input_shape = None
     
-    for key in load_data_in_batches(file_path, batch_size=batch_size):
+    for key in data.files:
         temp_sequences = data[key]
         print(f"Checking key '{key}': shape {temp_sequences.shape}")  # Debugging
 
@@ -87,8 +80,8 @@ def load_sequences(data, label, file_path, batch_size=1000):
     return encoded_sequences, input_shape
 
 # Load data
-mutated_sequences, input_shape = load_sequences(mutated_data, "mutated", mutated_data)
-nonmutated_sequences, _ = load_sequences(nonmutated_data, "nonmutated", nonmutated_data)
+mutated_sequences, input_shape = load_sequences(mutated_data, "mutated")
+nonmutated_sequences, _ = load_sequences(nonmutated_data, "nonmutated")
 
 mutated_labels = np.ones(mutated_sequences.shape[0])  # 1 for mutated
 nonmutated_labels = np.zeros(nonmutated_sequences.shape[0])  # 0 for non-mutated

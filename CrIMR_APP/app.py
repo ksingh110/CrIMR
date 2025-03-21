@@ -49,13 +49,13 @@ def predict():
             fasta_sequence = f.read()
 
         # Preprocess the sequence
-        preprocessed_data = onehotencoder(fasta_sequence, max_length=102500)
-
+        processed_data = onehotencoder(fasta_sequence, max_length=102500)
+        preprocessed = process(processed_data)
         # Reshape for the model if necessary
-        processed_data = process(preprocessed_data)
+      
 
         # Make prediction
-        prediction = model.predict(processed_data)
+        prediction = model.predict(preprocessed).flatten()
 
         # Return prediction as JSON
         return jsonify({'prediction': prediction.tolist()})

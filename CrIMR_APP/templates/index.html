@@ -6,63 +6,23 @@
     <title>ML Model Prediction</title>
     <style>
         body {
-            font-family: 'Helvetica', sans-serif;
+            font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 0;
             display: flex;
-            justify-content: flex-start;
-            align-items: flex-start;
-            height: 100vh;
-            padding-left: 250px;
-            padding-top: 100px;
-            background: linear-gradient(to bottom, #000000, #315a81); /* Black to blue gradient */
-        }
-
-        /* Top Bar */
-        .top-bar {
-            background-color: transparent;
-            width: 100%;
-            height: 50px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 10;
-            display: flex;
+            justify-content: center;
             align-items: center;
-            justify-content: center; /* Centers the nav bar in the top bar */
-            padding: 0 20px;
-        }
-
-        .nav-bar {
-            display: flex;
-            gap: 100px;
-        }
-
-        .nav-button {
-            background: transparent;
-            position: relative;
-            top: 10px;
-            left: -12px;
-            color: white;
-            border: none;
-            font-size: 14px;
-            cursor: pointer;
-            padding: 10px 15px;
-            transition: none; /* No transition effect so background remains transparent */
-        }
-
-        .nav-button:hover {
-            background: transparent; /* Remains transparent on hover */
+            height: 100vh;
+            background: linear-gradient(to bottom, #000000, #315a81);
         }
 
         .main-container {
-            display: flex; /* Flexbox for layout */
-            gap: 50px; /* Space between the two boxes */
-            width: 100%;
+            display: flex;
+            gap: 50px;
+            width: 90%;
             max-width: 1600px;
-            height: 100%;
-            max-height: 800px;
-            padding-top: 80px; /* Adjust for the top bar */
+            height: auto;
+            padding-top: 80px;
         }
 
         .container {
@@ -74,29 +34,13 @@
         }
 
         .left-container {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 13, 34, 0.1);
-            width: 150%; /* Make each box take up almost half of the width */
-            max-width: 1400px;
-            height: 60%;
-            max-height: 800px;
-            text-align: center;
-            margin-top: 45px;
-            margin-left: -80px;
-            
+            width: 60%;
+            max-width: 1000px;
         }
 
         .right-container {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 13, 34, 0.1);
-            width: 55%; /* Make each box take up almost half of the width */
+            width: 40%;
             max-width: 600px;
-            height: 90%;
-            max-height: 1400px;
-            text-align: center;
-            margin-top: -70px;
         }
 
         h1 {
@@ -116,117 +60,77 @@
             gap: 20px;
         }
 
-        label {
-            font-size: 16px;
-            font-weight: bold;
-        }
-
         input[type="file"] {
             padding: 10px;
             width: 80%;
             font-size: 16px;
             border-radius: 20px;
-            background-image: linear-gradient(45deg, #f87c00, #a43400); /* Gradient background */
-            background-size: 200% 200%; /* Ensure the gradient is larger than the box */
-            animation: gradientBorder 5s infinite linear; /* Apply gradient animation */
-            color: white; /* Make text in the file input button readable */
-            cursor: pointer; /* Change cursor to pointer on hover */
-            outline: none; /* Remove default focus outline */
-            text-align: center; /* Center the text */
+            background: linear-gradient(45deg, #f87c00, #a43400);
+            color: white;
+            cursor: pointer;
+            outline: none;
+            text-align: center;
         }
-
-        input[type="file"]::-webkit-file-upload-button {
-            background-color: #315a8193; /* Make the button background transparent */
-            color: inherit; /* Inherit text color from parent */
-            font-size: inherit; /* Use the same font size */
-            border: none; /* Remove the border */
-            cursor: pointer; /* Make it look clickable */
-            padding: 10px 20px;
-            border-radius: 10px;
-            box-shadow: none; /* Remove default shadow */
-            transition: all 0.3s ease; /* Smooth transition for hover effect */
-        }
-
-        input[type="file"]:hover::-webkit-file-upload-button {
-            background-color: #315a81; /* Hover effect with a subtle change */
-            color: white; /* Text color when hovered */
-            box-shadow: 0 0 25px rgba(49, 90, 129, 0.6); /* Add shadow on hover */
-        }
-
-        @keyframes gradientBorder {
-            0% {
-                background-position: 0% 50%;
-                box-shadow: 0 0 0 0 rgba(240, 75, 0, 0.5);
-            }
-            50% {
-                background-position: 100% 50%;
-                box-shadow: 0 0 0 0 rgba(189, 64, 7, 0.5);
-            }
-            100% {
-                background-position: 0% 50%;
-                box-shadow: 0 0 0 0 rgba(240, 75, 0, 0.5);
-            }
+        input[type="file"]:hover {
+            background-image: linear-gradient(45deg, #a43400, #f87c00);
+            box-shadow: 0 0 5px #f87c00;
         }
 
         button {
             padding: 12px 25px;
-            background-image: linear-gradient(45deg, #000000, #3f73a3); /* Gradient background */
+            background: linear-gradient(45deg, #000000, #3f73a3);
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
-            background-size: 200% 200%; /* Make the gradient larger than the button */
-            animation: gradientButton 5s infinite linear; /* Apply gradient animation */
         }
 
-        button:hover {
-            background-color: #5788dc; /* Hover effect with a lighter color */
-            box-shadow: 0 0 25px rgba(49, 90, 129, 0.6); /* Add shadow on hover */
+
+        .top-bar {
+            background-color: transparent;
+            width: 100%;
+            height: 50px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
         }
 
-        @keyframes gradientButton {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
+        .nav-bar {
+            display: flex;
+            gap: 100px;
         }
 
-        h3 {
-            margin-top: 30px;
-            font-size: 18px;
+        .nav-button {
+            position: relative;
+            top: 10px;
+            left: -20px;
+            background: transparent;
+            color: white;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 10px 15px;
         }
 
-        p#result {
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-            margin-top: 10px;
+        .nav-button:hover {
+            color: #f87c00;
         }
-
-        .error {
-            color: red;
-            font-weight: bold;
-        }
-        
     </style>
 </head>
 <body>
-    <!-- Top Bar with Buttons -->
     <div class="top-bar">
         <div class="nav-bar">
             <button class="nav-button" onclick="window.location.href='/'">Home</button>
-            <button class="nav-button" onclick="window.location.href='/index'">About</button>
+            <button class="nav-button" onclick="window.location.href='/index'">Get Started</button>
         </div>
     </div>
-
     <div class="main-container">
-        <!-- Left Container -->
         <div class="container left-container">
             <h1>DSPDiagnosis</h1>
             <h2>Using CrIMR for Delayed Sleep Phase Disorder</h2>
@@ -238,53 +142,31 @@
             <h3>Prediction Result:</h3>
             <p id="result"></p>
         </div>
-
-        <!-- Right Container -->
         <div class="container right-container">
             <h1>About DSPDiagnosis</h1>
             <h2>Details about the prediction and data</h2>
             <p>Our model analyzes genetic sequences to detect potential markers of Delayed Sleep Phase Disorder (DSPD) using CrIMR technology. Upload a file to receive an analysis.</p>
         </div>
     </div>
-
     <script>
         document.getElementById('prediction-form').addEventListener('submit', async function(event) {
             event.preventDefault();
-
             const fileInput = document.getElementById('fileInput').files[0];
-
             const formData = new FormData();
             formData.append('file', fileInput);
-
             try {
                 const response = await fetch('http://127.0.0.1:5000/predict', {
                     method: 'POST',
                     body: formData,
                 });
-
                 const result = await response.json();
-
-                if (result.prediction) {
-                    document.getElementById('result').textContent = `Prediction: ${result.prediction}`;
-                    document.getElementById('result').classList.remove('error');
-                } else {
-                    document.getElementById('result').textContent = `Error: ${result.error}`;
-                    document.getElementById('result').classList.add('error');
-                }
+                document.getElementById('result').textContent = result.prediction ? `Prediction: ${result.prediction}` : `Error: ${result.error}`;
+                document.getElementById('result').classList.toggle('error', !result.prediction);
             } catch (error) {
                 document.getElementById('result').textContent = `Error: ${error.message}`;
                 document.getElementById('result').classList.add('error');
             }
         });
-    </script>
-
-    <script>
-        function scrollToSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            if (section) {
-                section.scrollIntoView({ behavior: 'smooth' });
-            }
-        }
     </script>
 </body>
 </html>

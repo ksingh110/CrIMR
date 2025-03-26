@@ -1,29 +1,54 @@
-import numpy as np
-import csv
 import re
 import pandas as pd
 
-#Krishay add here
-def read_vcf(vcf_file):
+# Define exon 11 coordinates (GRCh38)
+EXON_11_START = 107492538
+EXON_11_END = 107492659
 
-    spliceai_data = {}
+def parse_spliceai_vcf(vcf_file):
+    """
+    Extracts SpliceAI scores for variants in exon 11 of CRY1.
+    """
+    spliceai_data = []
 
     with open(vcf_file, 'r') as f:
         for line in f:
-            continue
-        fields = line.strip().split("\t")
-        chrom_num, pos, ref_nuc, alt_nuc, info = fields[0], fields[1], fields[3], fields[4], fields[7]
+            if line.startswith("#"):
+                continue  # Skip header
+            fields = line.strip().split("\t")
+            chrom, pos, ref, alt, info = fields[0], int(fields[1]), fields[3], fields[4], fields[7]
 
-        match = re.search(r'SPLICEAI=[^|]+\|([\d.]+)\|([\d.]+)\|([\d.]+)\|([\d.]+)', info)
-        if match:
-            spliceai_scores = [float(match.group(i)) for i in range(1, 5)]
-            max_spliceai = max(spliceai_scores)  
-            spliceai_data[(chrom, pos, alt)] = max_spliceai
+            # Only keep variants within exon 11
+            if EXON_11_START <= pos <= EXON_11_END:
+                match = re.search(r'SPLICEAI=[^|]+\|([\d.]+)\|([\d.]+)\|([\d.]+)\|([\d.]+)', info)
+                if match:
+                    spliceai_scores = [float(match.group(i)) for i in range(1, 5)]
+                    max_spliceai = max(spliceai_scores)  # Use the max score
+                    spliceai_data.append({
+                        "chromosome": chrom,
+                        "position": pos,
+                        "ref": ref,
+                        "alt": alt,
+                        "SpliceAI_max": max_spliceai
+                    })
 
-    return spliceai_data
+    return pd.DataFrame(spliceai_data)
 
+# Hill function for DSPS probability
+def hill_function(spliceai_score, kd_base=1.0, n=2.0):
+    kd_mutated = kd_base / (1 + spliceai_score)  # Adjust Kd based on mutation strength
+    repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
+    return repression_probability
+
+# Load SpliceAI scores (only for exon 11)
 vcf_file = "cry1_spliceai.vcf"
-spliceai_scores = read_vcf(vcf_file)
-print(spliceai_scores) 
+df = parse_spliceai_vcf(vcf_file)
 
+# Apply Hill function
+df["DSPS_probability"] = df["SpliceAI_max"].apply(hill_function)
+
+# Save results
+df.to_csv("cry1_exon11_dsps_predictions.csv", index=False)
+
+print(df.head())  # Check results
 

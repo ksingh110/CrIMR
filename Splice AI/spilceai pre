@@ -1,0 +1,30 @@
+#SpliceAI
+#imports here
+import pandas as pd
+
+#Krishay add a link to the csv file
+csv = "Link_to_file.csv
+mutations = pd.read_csv(csv)
+
+vcf_header = """##fileformat=VCFv4.2
+##INFO=<ID=SPLICEAI,Number=.,Type=String,Description="SpliceAI scores">
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"""
+
+vcf_rows = []
+for _, rows in mutations.iterrows():
+    #Krishay add
+    chrom_num = 11
+    start_pos = row['']
+    ref_nuc = row['']
+    alt_nuc = row['']
+    vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.")
+#Krishay add a link for what you want the vcf to be called
+vcf_file = 'Create link name.vcf'
+with open(vcf_file, "w") as f:
+    f.write(vcf_header + "\n")
+    f.write("\n".join(vcf_rows))
+
+print("VCF file has succesfully been saved, the link is {vcf_file}")
+
+#Krishay add vcf link and then the path to the reference nonmutated cry 1
+spliceai -I link_here.vcf -O link_here.vcf -R "Path to non mutated sequence" -A grch38

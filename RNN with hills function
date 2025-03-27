@@ -16,8 +16,8 @@ from sklearn.manifold import TSNE
 import umap.umap_ as umap
 
 # Define exon 11 coordinates (GRCh38)
-EXON_11_START = 107492538
-EXON_11_END = 107492659
+EXON_11_START = 96257
+EXON_11_END = 100513
 
 def parse_spliceai_vcf(vcf_file):
     spliceai_data = []

@@ -5,7 +5,8 @@ from APP_Preprocessing import onehotencoder  # Assuming this is the preprocessin
 from APP_Preprocessing import process
 
 # Load your trained model
-model = tf.keras.models.load_model("E:/my_models/750_if_new_best_model.keras")
+model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras") 
+
 
 app = Flask(__name__)
 

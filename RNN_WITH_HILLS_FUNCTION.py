@@ -1,0 +1,112 @@
+import re
+import pandas as pd
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.utils import shuffle
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import IsolationForest
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, EarlyStopping
+from sklearn.metrics import classification_report, roc_curve, roc_auc_score
+from tensorflow.keras import regularizers
+from sklearn.manifold import TSNE
+import umap.umap_ as umap
+
+# Define exon 11 coordinates (GRCh38)
+EXON_11_START = 96257
+EXON_11_END = 100513
+
+def parse_spliceai_vcf(vcf_file):
+    spliceai_data = []
+    with open(vcf_file, 'r') as f:
+        for line in f:
+            if line.startswith("#"):
+                continue  # Skip header
+            fields = line.strip().split("\t")
+            chrom, pos, ref, alt, info = fields[0], int(fields[1]), fields[3], fields[4], fields[7]
+            if EXON_11_START <= pos <= EXON_11_END:
+                match = re.search(r'SPLICEAI=[^|]+\|([\d.]+)\|([\d.]+)\|([\d.]+)\|([\d.]+)', info)
+                if match:
+                    spliceai_scores = [float(match.group(i)) for i in range(1, 5)]
+                    max_spliceai = max(spliceai_scores)
+                    spliceai_data.append({
+                        "chromosome": chrom,
+                        "position": pos,
+                        "ref": ref,
+                        "alt": alt,
+                        "SpliceAI_max": max_spliceai
+                    })
+    return pd.DataFrame(spliceai_data)
+
+def hill_function(spliceai_score, kd_base=1.0, n=2.0):
+    kd_mutated = kd_base / (1 + spliceai_score)
+    repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
+    return repression_probability
+
+vcf_file = "cry1_spliceai.vcf"
+df = parse_spliceai_vcf(vcf_file)
+df["DSPS_probability"] = df["SpliceAI_max"].apply(hill_function)
+df.to_csv("cry1_exon11_dsps_predictions.csv", index=False)
+print(df.head())
+
+mutated_data = np.load("/content/MUTATION_DATA_TRAIN_6000.npz", allow_pickle=True)
+mutated_test = mutated_data['arr_0'][:1000]
+np.savez_compressed("MUTATED_DATA_TEST_1000_6000", arr_0=np.array(mutated_test))
+mutated_val = mutated_data['arr_0'][5000:]
+np.savez_compressed("MUTATED_DATA_VAL_1000_6000", arr_0=np.array(mutated_val))
+mutated_train = mutated_data['arr_0'][1000:5000]
+np.savez_compressed("MUTATED_DATA_TRAIN_5000_6000", arr_0=np.array(mutated_train))
+
+def load_sequences(data):
+    encoded_sequences = None
+    for key in data.files:
+        temp_sequences = data[key]
+        if temp_sequences.ndim == 2:
+            temp_sequences = np.expand_dims(temp_sequences, axis=1)
+        if temp_sequences.ndim == 3:
+            encoded_sequences = temp_sequences
+            break
+    return encoded_sequences
+
+mutated_test = load_sequences(np.load("/content/MUTATED_DATA_TEST_1000_6000_TRUE_3.npz", allow_pickle=True))
+mutated_test_label = np.ones(mutated_test.shape[0])
+mutated_test, mutated_test_label = shuffle(mutated_test, mutated_test_label, random_state=42)
+
+mutated_val = load_sequences(np.load("/content/MUTATED_DATA_VAL_1000_6000_TRUE_2.npz", allow_pickle=True))
+mutated_val_label = np.ones(mutated_val.shape[0])
+mutated_val, mutated_val_label = shuffle(mutated_val, mutated_val_label, random_state=42)
+
+mutated_train = load_sequences(np.load("/content/MUTATED_DATA_TRAIN_5000_6000_TRUE_2.npz", allow_pickle=True))
+mutated_train_label = np.ones(mutated_train.shape[0])
+mutated_train, mutated_train_label = shuffle(mutated_train, mutated_train_label, random_state=42)
+
+X_train = np.concatenate([mutated_train], axis=0)
+y_train = np.concatenate([mutated_train_label], axis=0)
+X_train, y_train = shuffle(X_train, y_train, random_state=1)
+
+scaler = MinMaxScaler()
+X_train_scaled = scaler.fit_transform(X_train.reshape(X_train.shape[0], -1))
+
+pca_data = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_train_scaled)
+plt.figure(figsize=(10, 8))
+plt.scatter(pca_data[:, 0], pca_data[:, 1], c=y_train, cmap='coolwarm', alpha=0.7)
+plt.colorbar(label='Class Label')
+plt.title("t-SNE Projection of Training Data")
+plt.xlabel("t-SNE Component 1")
+plt.ylabel("t-SNE Component 2")
+plt.show()
+
+model = Sequential([
+    Bidirectional(LSTM(32, activation="relu", return_sequences=True), input_shape=(X_train.shape[1], X_train.shape[2])),
+    Dropout(0.2),
+    LSTM(16, activation="relu"),
+    Dropout(0.2),
+    Dense(8, activation="relu"),
+    Dense(1, activation="sigmoid")
+])
+
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.summary()

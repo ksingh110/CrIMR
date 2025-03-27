@@ -1,193 +1,73 @@
 import numpy as np
 import pandas as pd
-import os
-import tensorflow as tf
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-from sklearn.metrics import roc_curve, roc_auc_score
-from sklearn.ensemble import IsolationForest
-import matplotlib.pyplot as plt
-import re
+from tensorflow.keras.models import load_model
+import random
 
-# Reset TensorFlow graph
-tf.compat.v1.reset_default_graph()
+rnn_model = load_model("rnn_mutation_model.h5")  # Replace with model path
 
-# Paths and data
-checkpoint_path = "E:/my_models/750_if_new_best_model.h5"
-save_path = "E:/my_plots/750_if_new_prediction_plots/"
-mutated_data = np.load("E:\datasets\processeddata\MUTATION_DATA_TRAINING_750.npz", allow_pickle=True, mmap_mode='r')
-nonmutated_data = np.load("E:\\datasets\\processeddata\\AUGMENTED_DATA_TRAINING_750.npz", allow_pickle=True, mmap_mode='r')
-csv_file = "cry1realvariations (1).csv"  # Assuming this CSV contains mutation data for anomaly detection
 
-# Intron 10 coordinates (GRCh38)
-INTRON_10_START = 107492400
-INTRON_10_END = 107492537
-# --- Step 1: Load and Get Anomaly Scores ---
-def load_and_get_anomaly_scores(csv_file):
-    df = pd.read_csv(csv_file)
+def mutation_prob(sequence):
+    sequence = np.expand_dims(sequence, axis=0) 
+    return rnn_model.predict(sequence)[0][0]  
 
-    # Assuming the CSV file has columns 'Mutation ID' and 'Allele Frequency'
-    data_id_array = df['_displayName'].values[:750].reshape(-1, 1)  # Get the first 1000 Mutation IDs
-    array_data = df['AF'].values[:750].reshape(-1, 1)  # Get the first 1000 Allele Frequencies
+INTRON_10_START = 107492400 
+INTRON_10_END = 107492537  
 
-    # Initialize and fit the Isolation Forest model
-    clf = IsolationForest(contamination=0.01, random_state=42)
-    clf.fit(array_data)
+csv_file = "cry1_mutations.csv"  # Replace with file path
+mutations = pd.read_csv(csv_file)
 
-    # Get anomaly scores and predictions
-    anomaly_scores = clf.decision_function(array_data)  # Negative scores represent outliers (anomalous)
-    predictions = clf.predict(array_data)  # -1 for anomaly, 1 for normal
+vcf_header = """##fileformat=VCFv4.2
+##INFO=<ID=SPLICEAI,Number=.,Type=String,Description="SpliceAI scores">
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"""
 
-    # Invert the anomaly scores (as lower scores indicate anomalies, we invert so higher scores are more "normal")
-    inverted_anomaly_scores = -anomaly_scores
+vcf_rows = []
+for _, row in mutations.iterrows():
+    chrom = row['chromosome']
+    pos = row['startpos']
+    ref = row['ref']
+    alt = row['alt']
 
-    # Filter out NaN values and prepare the data for plotting
-    valid_indices = ~np.isnan(array_data)
-    valid_indices = valid_indices.flatten() 
-    data_id_array = data_id_array[valid_indices]
-    array_data = array_data[valid_indices]
-    inverted_anomaly_scores = inverted_anomaly_scores[valid_indices]
-    predictions = predictions[valid_indices]
+    mutation_sequence = [ref, alt]  
 
-    return inverted_anomaly_scores, data_id_array, array_data, predictions
-
-# Get anomaly scores
-anomaly_scores, _, _, _ = load_and_get_anomaly_scores(csv_file)
-
-# --- Step 2: Load Sequences ---
-def load_sequences(data, label):
-    encoded_sequences = None
-    input_shape = None
+    # Predict mutation probability using the RNN
+    mutation_prob = mutation_prob(np.array([mutation_sequence]))  
+    spliceai_score = mutation_prob 
     
-    for key in data.files:
-        temp_sequences = data[key]
-        print(f"Checking key '{key}': shape {temp_sequences.shape}")  # Debugging
+    if INTRON_10_START <= pos <= INTRON_10_END:
+        vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\tSPLICEAI={spliceai_score}")
 
-        if temp_sequences.ndim == 2:  # If 2D, reshape to 3D for LSTM
-            temp_sequences = np.expand_dims(temp_sequences, axis=1)  # (samples, 1, features)
+input_vcf = "cry1_variants_with_rnn.vcf"
+with open(input_vcf, "w") as f:
+    f.write(vcf_header + "\n")
+    f.write("\n".join(vcf_rows))
 
-        if temp_sequences.ndim == 3:
-            encoded_sequences = temp_sequences
-            input_shape = (encoded_sequences.shape[1], encoded_sequences.shape[2])
-            print(f"Using key '{key}' with reshaped shape {encoded_sequences.shape}")
-            break
-        else:
-            print(f"Skipping '{key}': Unexpected shape {temp_sequences.shape}")
+print(f"VCF file created: {input_vcf}")
 
-    if encoded_sequences is None:
-        raise ValueError(f"No valid encoded sequences found in {label} file.")
+def simulate_spliceai_score(chrom, pos, ref, alt):
+    return round(random.uniform(0, 1), 4)
 
-    return encoded_sequences, input_shape
+mutations['SpliceAI_max'] = mutations.apply(
+    lambda row: simulate_spliceai_score(row['chromosome'], row['startpos'], row['ref'], row['alt']),
+    axis=1
+)
 
-# Load data
-mutated_sequences, input_shape = load_sequences(mutated_data, "mutated")
-nonmutated_sequences, _ = load_sequences(nonmutated_data, "nonmutated")
-
-mutated_labels = np.ones(mutated_sequences.shape[0])  # 1 for mutated
-nonmutated_labels = np.zeros(nonmutated_sequences.shape[0])  # 0 for non-mutated
-
-# --- Step 3: Generate Random Mutation IDs for Non-mutated Data ---
-nonmutated_data_with_ids = np.array([f"NonMut_{i}" for i in range(len(nonmutated_data.files))])
-
-# Generate random noise (Gaussian noise with mean 0 and std deviation same as mutated data's AF)
-allele_frequency_mutated = pd.read_csv(csv_file)['AF'].values[:750]  # Allele Frequency of mutated data
-noise = np.random.normal(0, np.std(allele_frequency_mutated), len(nonmutated_data.files))
-
-# Add noise to non-mutated allele frequencies (assuming a similar structure in 'nonmutated_data')
-nonmutated_allele_frequency = np.random.normal(np.mean(allele_frequency_mutated), np.std(allele_frequency_mutated), len(nonmutated_data.files))
-
-# Step 4: Apply Isolation Forest on Non-mutated Data
-df_nonmutated_with_noise = pd.DataFrame({
-    '_displayName': nonmutated_data_with_ids,
-    'AF': nonmutated_allele_frequency
-})
-
-clf = IsolationForest(contamination=0.01, random_state=42)
-clf.fit(df_nonmutated_with_noise['AF'].values.reshape(-1, 1))
-
-# Get anomaly scores and predictions for non-mutated data
-nonmutated_anomaly_scores = clf.decision_function(df_nonmutated_with_noise['AF'].values.reshape(-1, 1))
-nonmutated_predictions = clf.predict(df_nonmutated_with_noise['AF'].values.reshape(-1, 1))
-
-# Invert the anomaly scores (lower scores = anomalies)
-nonmutated_inverted_anomaly_scores = -nonmutated_anomaly_scores
-
-# --- Step 5: Combine Mutated and Non-mutated Sequences with Anomalies ---
-anomaly_scores_reshaped = anomaly_scores[:mutated_sequences.shape[0]].reshape(-1, 1)
-anomaly_scores_reshaped = np.expand_dims(anomaly_scores_reshaped, axis=-1)  # shape (1000, 1, 1)
-
-# Update the last feature of each sequence with the anomaly score
-mutated_sequences_with_anomalies = mutated_sequences.copy()
-mutated_sequences_with_anomalies[:, :, -1:] = anomaly_scores_reshaped
-
-# Concatenate the mutated and non-mutated sequences (with anomalies added to mutated)
-X_with_anomalies = np.concatenate([mutated_sequences_with_anomalies, nonmutated_sequences], axis=0)
-y = np.concatenate([mutated_labels, nonmutated_labels], axis=0)
-
-# --- Step 6: Train RNN Model ---
-def rnn_model(input_shape):
-    model = Sequential([  
-        LSTM(32, input_shape=input_shape, return_sequences=False, activation="relu"),  
-        Dropout(0.5),  
-        Dense(1, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(0.01))  
-    ])  
-    model.compile(optimizer="adamw", loss='binary_crossentropy', metrics=['accuracy'])  
-    return model
-
-def reset_rnn(input_shape):
-    model = rnn_model(input_shape)
-    return model
-
-# Reset model
-model = reset_rnn(input_shape)
-
-checkpoint = ModelCheckpoint(checkpoint_path, monitor="val_loss", save_best_only=True, mode="min")
-csv_log = CSVLogger("training_log_new_750_if.csv", append=True)
-
-# Fit the model
-rnn_fit = model.fit(X_with_anomalies, y, batch_size=16, epochs=20, verbose=1, validation_split=0.2, callbacks=[csv_log, checkpoint])
-
-# --- Step 7: Apply Hill Function for DSPS Prediction ---
 def hill_function(spliceai_score, kd_base=1.0, n=2.0):
+    """
+    This function computes the DSPD probability using the Hill function.
+    The input spliceai_score is the predicted mutation probability from the RNN model.
+    """
     kd_mutated = kd_base / (1 + spliceai_score)
     repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
     return repression_probability
 
-# --- Step 8: Parse SpliceAI VCF File ---
-def parse_spliceai_vcf(vcf_file):
-    spliceai_data = []
-    with open(vcf_file, 'r') as f:
-        for line in f:
-            if line.startswith("#"):
-                continue  # Skip header
-            fields = line.strip().split("\t")
-            chrom, pos, ref, alt, info = fields[0], int(fields[1]), fields[3], fields[4], fields[7]
-            if INTRON_10_START <= pos <= INTRON_10_END:
-                match = re.search(r'SPLICEAI=[^|]+\|([\d.]+)\|([\d.]+)\|([\d.]+)\|([\d.]+)', info)
-                if match:
-                    spliceai_scores = [float(match.group(i)) for i in range(1, 5)]
-                    max_spliceai = max(spliceai_scores)  # Use the max score
-                    spliceai_data.append({
-                        "chromosome": chrom,
-                        "position": pos,
-                        "ref": ref,
-                        "alt": alt,
-                        "SpliceAI_max": max_spliceai
-                    })
-    return pd.DataFrame(spliceai_data)
+mutations['DSPS_probability'] = mutations['SpliceAI_max'].apply(hill_function)
 
-# Load SpliceAI scores from VCF
-vcf_file = "cry1_spliceai.vcf"
-df_spliceai = parse_spliceai_vcf(vcf_file)
 
-# Apply Hill function
-df_spliceai["DSPS_probability"] = df_spliceai["SpliceAI_max"].apply(hill_function)
+mutations_INTRON10 = mutations[(mutations['startpos'] >= INTRON_10_START_10_START) & (mutations['startpos'] <= INTRON_10_ENDN_10_END)]
 
-# Save results
-df_spliceai.to_csv("cry1_intron10_dsps_predictions.csv", index=False)
+mutations_INTRON10.to_csv("cry1_intron10_spliceai_dsps_predictions.csv", index=False)
 
-print(df_spliceai.head())
+print("DSPD probabilities for Intron 11 saved to cry1_intron10_spliceai_dsps_predictions.csv")
+print(mutations_INTRON10.head())  
+
+print("Results saved in: cry1_intron10_spliceai_dsps_predictions.csv")

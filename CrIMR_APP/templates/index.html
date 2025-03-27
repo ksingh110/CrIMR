@@ -208,6 +208,9 @@
             padding: 5px;
             color: white;
             font-weight: bold;
+            width: 0%; /* Start with no width */
+            transition: width 2s ease-in-out; 
+            width: 100%;
         }
 
         .chart-text {
@@ -215,7 +218,8 @@
             right: 10px;
             font-size: 16px;
             opacity: 0;
-            animation: fadeInLeft 1s
+            animation: fadeInLeft 1s;
+            opacity: 1;
         }
     </style>
 </head>

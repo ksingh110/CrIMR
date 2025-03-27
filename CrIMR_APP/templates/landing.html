@@ -10,6 +10,7 @@
             background: linear-gradient(to bottom, #000000, #315a81);
             margin: 0;
             padding: 0;
+            overflow-y: auto;
         }
 
         /* Fade In Left Animation */
@@ -137,6 +138,18 @@
                 padding-left: 0;
             }
         }
+
+        /* DSPD Blurb Style */
+        .dspd-blurb {
+            background-color: transparent;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1rem;
+            margin-top: 50px;
+            border-radius: 8px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -153,6 +166,12 @@
         <h1>Welcome to DSPDiagnosis</h1>
         <p>Your solution for Delayed Sleep Phase Disorder (DSPD) detection.</p>
         <button onclick="window.location.href='/index'">Get Started</button>
+    </div>
+
+    <!-- DSPD Blurb at the Bottom -->
+    <div class="dspd-blurb">
+        <h2>What is Delayed Sleep Phase Disorder (DSPD)?</h2>
+        <p>Delayed Sleep Phase Disorder (DSPD) is one of the most common genetically-caused sleep disorder where individuals inherit a late sleep/wake cycle, sleeping at least 1-2 hours later than recommended. Being presentin in 15% of adolescents and adults, its genetic backing remains the cause for 40-50% cases. Yet current methods of diagnosis, such as DLMO's and PSG's, fail to acknolwedge the genetic aspect, restricting personalized diagnosis and treatment. DSPDiagnosis, trained by the novel LSTM model CrIMR, is the world's first solution towards this significant problem. Try it out today!</p>
     </div>
 </body>
 </html>

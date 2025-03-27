@@ -1,30 +1,56 @@
-#SpliceAI
-#imports here
 import pandas as pd
-
-#Krishay add a link to the csv file
-csv = "Link_to_file.csv
-mutations = pd.read_csv(csv)
-
+import subprocess
+ 
+# --- Step 1: Read CSV and Create VCF File ---
+ 
+# Replace with your actual CSV file path containing your CRY1 mutation data
+csv_file = "cry1_mutations.csv"
+mutations = pd.read_csv(csv_file)
+ 
+# Define VCF header
 vcf_header = """##fileformat=VCFv4.2
 ##INFO=<ID=SPLICEAI,Number=.,Type=String,Description="SpliceAI scores">
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"""
-
+ 
 vcf_rows = []
-for _, columns in mutations.iterrows():
-    #Krishay add
-    chrom_num = 11
-    start_pos = columns['']
-    ref_nuc = columns['']
-    alt_nuc = columns['']
+for _, row in mutations.iterrows():
+    # Replace these column names with those in your CSV file
+    chrom = row['chromosome']  # e.g., "12" or "chr12"
+    pos = row['startpos']      # Genomic position of the mutation
+    ref = row['ref']           # Reference nucleotide
+    alt = row['alt']           # Alternate nucleotide
+ 
+    # Format a VCF row (using '.' for ID, QUAL, and FILTER fields)
     vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\t.")
-#Krishay add a link for what you want the vcf to be called
-vcf_file = 'Create link name.vcf'
-with open(vcf_file, "w") as f:
+ 
+# Output VCF file name (this is the input for SpliceAI)
+input_vcf = "cry1_variants.vcf"
+with open(input_vcf, "w") as f:
     f.write(vcf_header + "\n")
     f.write("\n".join(vcf_rows))
+ 
+print(f" VCF file created: {input_vcf}")
+ 
+# --- Step 2: Run SpliceAI via Python ---
+ 
+# Define your reference FASTA and the output VCF file for SpliceAI results
+reference_fasta = "reference.fasta"  # This can be just the CRY1 sequence if formatted correctly
+output_vcf = "cry1_spliceai.vcf"
+ 
+# Build the SpliceAI command.
+# Make sure the SpliceAI tool is installed and in your system's PATH.
+command = f"spliceai -I {input_vcf} -O {output_vcf} -R {reference_fasta} -A grch38"
 
-print("VCF file has succesfully been saved, the link is {vcf_file}")
-
-#Krishay add vcf link and then the path to the reference nonmutated cry 1
-spliceai -I link_here.vcf -O link_here.vcf -R "Path to non mutated sequence" -A grch38
+print(" Running SpliceAI command:")
+print(command)
+ 
+# Execute the command using subprocess
+result = subprocess.run(command, shell=True, capture_output=True, text=True)
+ 
+# Check if the command was successful
+if result.returncode == 0:
+    print(" SpliceAI finished successfully!")
+    print(result.stdout)
+else:
+    print(" Error running SpliceAI:")
+    print(result.stderr)

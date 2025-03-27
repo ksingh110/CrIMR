@@ -71,6 +71,7 @@
             outline: none;
             text-align: center;
         }
+
         input[type="file"]:hover {
             background-image: linear-gradient(45deg, #a43400, #f87c00);
             box-shadow: 0 0 5px #f87c00;
@@ -120,6 +121,11 @@
         .nav-button:hover {
             color: #f87c00;
         }
+
+        canvas {
+            width: 100%;
+            height: 300px;
+        }
     </style>
 </head>
 <body>
@@ -140,6 +146,7 @@
             </form>
             <h3>Prediction Result:</h3>
             <p id="result"></p>
+            <canvas id="pieChart"></canvas>  <!-- Canvas for Pie Chart -->
         </div>
         <div class="container right-container">
             <h1>About DSPDiagnosis</h1>
@@ -147,51 +154,59 @@
             <p>Our model analyzes genetic sequences to detect potential markers of Delayed Sleep Phase Disorder (DSPD) using CrIMR technology. Upload a file to receive an analysis.</p>
         </div>
     </div>
+    
+    <!-- Include Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script>
         document.getElementById('prediction-form').addEventListener('submit', async function(event) {
             event.preventDefault();
-
-            // Get the file from the input
             const fileInput = document.getElementById('fileInput').files[0];
-            
-            if (!fileInput) {
-                document.getElementById('result').textContent = "No file selected!";
-                document.getElementById('result').classList.add('error');
-                return;
-            }
-
             const formData = new FormData();
             formData.append('file', fileInput);
-
+            
             try {
-                // Fetch the prediction result from Flask backend
                 const response = await fetch('http://127.0.0.1:5000/predict', {
                     method: 'POST',
                     body: formData,
                 });
-
-                // Handle non-OK responses (HTTP status codes other than 2xx)
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.statusText}`);
-                }
-
-                // Parse the JSON response
                 const result = await response.json();
-
-                // Update the result section with the prediction
-                if (result.prediction !== undefined) {
-                    document.getElementById('result').textContent = `Prediction: ${result.prediction}`;
-                    document.getElementById('result').classList.remove('error');
-                } else if (result.error) {
-                    document.getElementById('result').textContent = `Error: ${result.error}`;
-                    document.getElementById('result').classList.add('error');
-                } else {
-                    document.getElementById('result').textContent = "Unknown error occurred.";
-                    document.getElementById('result').classList.add('error');
-                }
+                
+                // Display the prediction result
+                document.getElementById('result').textContent = result.prediction ? `Prediction: ${result.prediction}` : `Error: ${result.error}`;
+                
+                // Create Pie Chart using Chart.js
+                const ctx = document.getElementById('pieChart').getContext('2d');
+                const pieChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Mutation', 'Non-Mutation'],
+                        datasets: [{
+                            label: 'Prediction Probabilities',
+                            data: [result.mutation_prob, result.non_mutation_prob],
+                            backgroundColor: ['#FF5733', '#33FF57'],
+                            borderColor: ['#FF5733', '#33FF57'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(tooltipItem) {
+                                        return tooltipItem.label + ': ' + tooltipItem.raw.toFixed(2) + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
             } catch (error) {
                 document.getElementById('result').textContent = `Error: ${error.message}`;
-                document.getElementById('result').classList.add('error');
             }
         });
     </script>

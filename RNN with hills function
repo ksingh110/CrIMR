@@ -1,23 +1,163 @@
-import re
-import pandas as pd
 import numpy as np
+import pandas as pd
+import os
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.utils import shuffle
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+from sklearn.metrics import roc_curve, roc_auc_score
 from sklearn.ensemble import IsolationForest
-from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, EarlyStopping
-from sklearn.metrics import classification_report, roc_curve, roc_auc_score
-from tensorflow.keras import regularizers
-from sklearn.manifold import TSNE
-import umap.umap_ as umap
+import matplotlib.pyplot as plt
+import re
 
+# Reset TensorFlow graph
+tf.compat.v1.reset_default_graph()
+
+# Paths and data
+checkpoint_path = "E:/my_models/750_if_new_best_model.h5"
+save_path = "E:/my_plots/750_if_new_prediction_plots/"
+mutated_data = np.load("E:\datasets\processeddata\MUTATION_DATA_TRAINING_750.npz", allow_pickle=True, mmap_mode='r')
+nonmutated_data = np.load("E:\\datasets\\processeddata\\AUGMENTED_DATA_TRAINING_750.npz", allow_pickle=True, mmap_mode='r')
+csv_file = "cry1realvariations (1).csv"  # Assuming this CSV contains mutation data for anomaly detection
+
+# Intron 10 coordinates (GRCh38)
 INTRON_10_START = 107492400
 INTRON_10_END = 107492537
+# --- Step 1: Load and Get Anomaly Scores ---
+def load_and_get_anomaly_scores(csv_file):
+    df = pd.read_csv(csv_file)
 
+    # Assuming the CSV file has columns 'Mutation ID' and 'Allele Frequency'
+    data_id_array = df['_displayName'].values[:750].reshape(-1, 1)  # Get the first 1000 Mutation IDs
+    array_data = df['AF'].values[:750].reshape(-1, 1)  # Get the first 1000 Allele Frequencies
+
+    # Initialize and fit the Isolation Forest model
+    clf = IsolationForest(contamination=0.01, random_state=42)
+    clf.fit(array_data)
+
+    # Get anomaly scores and predictions
+    anomaly_scores = clf.decision_function(array_data)  # Negative scores represent outliers (anomalous)
+    predictions = clf.predict(array_data)  # -1 for anomaly, 1 for normal
+
+    # Invert the anomaly scores (as lower scores indicate anomalies, we invert so higher scores are more "normal")
+    inverted_anomaly_scores = -anomaly_scores
+
+    # Filter out NaN values and prepare the data for plotting
+    valid_indices = ~np.isnan(array_data)
+    valid_indices = valid_indices.flatten() 
+    data_id_array = data_id_array[valid_indices]
+    array_data = array_data[valid_indices]
+    inverted_anomaly_scores = inverted_anomaly_scores[valid_indices]
+    predictions = predictions[valid_indices]
+
+    return inverted_anomaly_scores, data_id_array, array_data, predictions
+
+# Get anomaly scores
+anomaly_scores, _, _, _ = load_and_get_anomaly_scores(csv_file)
+
+# --- Step 2: Load Sequences ---
+def load_sequences(data, label):
+    encoded_sequences = None
+    input_shape = None
+    
+    for key in data.files:
+        temp_sequences = data[key]
+        print(f"Checking key '{key}': shape {temp_sequences.shape}")  # Debugging
+
+        if temp_sequences.ndim == 2:  # If 2D, reshape to 3D for LSTM
+            temp_sequences = np.expand_dims(temp_sequences, axis=1)  # (samples, 1, features)
+
+        if temp_sequences.ndim == 3:
+            encoded_sequences = temp_sequences
+            input_shape = (encoded_sequences.shape[1], encoded_sequences.shape[2])
+            print(f"Using key '{key}' with reshaped shape {encoded_sequences.shape}")
+            break
+        else:
+            print(f"Skipping '{key}': Unexpected shape {temp_sequences.shape}")
+
+    if encoded_sequences is None:
+        raise ValueError(f"No valid encoded sequences found in {label} file.")
+
+    return encoded_sequences, input_shape
+
+# Load data
+mutated_sequences, input_shape = load_sequences(mutated_data, "mutated")
+nonmutated_sequences, _ = load_sequences(nonmutated_data, "nonmutated")
+
+mutated_labels = np.ones(mutated_sequences.shape[0])  # 1 for mutated
+nonmutated_labels = np.zeros(nonmutated_sequences.shape[0])  # 0 for non-mutated
+
+# --- Step 3: Generate Random Mutation IDs for Non-mutated Data ---
+nonmutated_data_with_ids = np.array([f"NonMut_{i}" for i in range(len(nonmutated_data.files))])
+
+# Generate random noise (Gaussian noise with mean 0 and std deviation same as mutated data's AF)
+allele_frequency_mutated = pd.read_csv(csv_file)['AF'].values[:750]  # Allele Frequency of mutated data
+noise = np.random.normal(0, np.std(allele_frequency_mutated), len(nonmutated_data.files))
+
+# Add noise to non-mutated allele frequencies (assuming a similar structure in 'nonmutated_data')
+nonmutated_allele_frequency = np.random.normal(np.mean(allele_frequency_mutated), np.std(allele_frequency_mutated), len(nonmutated_data.files))
+
+# Step 4: Apply Isolation Forest on Non-mutated Data
+df_nonmutated_with_noise = pd.DataFrame({
+    '_displayName': nonmutated_data_with_ids,
+    'AF': nonmutated_allele_frequency
+})
+
+clf = IsolationForest(contamination=0.01, random_state=42)
+clf.fit(df_nonmutated_with_noise['AF'].values.reshape(-1, 1))
+
+# Get anomaly scores and predictions for non-mutated data
+nonmutated_anomaly_scores = clf.decision_function(df_nonmutated_with_noise['AF'].values.reshape(-1, 1))
+nonmutated_predictions = clf.predict(df_nonmutated_with_noise['AF'].values.reshape(-1, 1))
+
+# Invert the anomaly scores (lower scores = anomalies)
+nonmutated_inverted_anomaly_scores = -nonmutated_anomaly_scores
+
+# --- Step 5: Combine Mutated and Non-mutated Sequences with Anomalies ---
+anomaly_scores_reshaped = anomaly_scores[:mutated_sequences.shape[0]].reshape(-1, 1)
+anomaly_scores_reshaped = np.expand_dims(anomaly_scores_reshaped, axis=-1)  # shape (1000, 1, 1)
+
+# Update the last feature of each sequence with the anomaly score
+mutated_sequences_with_anomalies = mutated_sequences.copy()
+mutated_sequences_with_anomalies[:, :, -1:] = anomaly_scores_reshaped
+
+# Concatenate the mutated and non-mutated sequences (with anomalies added to mutated)
+X_with_anomalies = np.concatenate([mutated_sequences_with_anomalies, nonmutated_sequences], axis=0)
+y = np.concatenate([mutated_labels, nonmutated_labels], axis=0)
+
+# --- Step 6: Train RNN Model ---
+def rnn_model(input_shape):
+    model = Sequential([  
+        LSTM(32, input_shape=input_shape, return_sequences=False, activation="relu"),  
+        Dropout(0.5),  
+        Dense(1, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(0.01))  
+    ])  
+    model.compile(optimizer="adamw", loss='binary_crossentropy', metrics=['accuracy'])  
+    return model
+
+def reset_rnn(input_shape):
+    model = rnn_model(input_shape)
+    return model
+
+# Reset model
+model = reset_rnn(input_shape)
+
+checkpoint = ModelCheckpoint(checkpoint_path, monitor="val_loss", save_best_only=True, mode="min")
+csv_log = CSVLogger("training_log_new_750_if.csv", append=True)
+
+# Fit the model
+rnn_fit = model.fit(X_with_anomalies, y, batch_size=16, epochs=20, verbose=1, validation_split=0.2, callbacks=[csv_log, checkpoint])
+
+# --- Step 7: Apply Hill Function for DSPS Prediction ---
+def hill_function(spliceai_score, kd_base=1.0, n=2.0):
+    kd_mutated = kd_base / (1 + spliceai_score)
+    repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
+    return repression_probability
+
+# --- Step 8: Parse SpliceAI VCF File ---
 def parse_spliceai_vcf(vcf_file):
     spliceai_data = []
     with open(vcf_file, 'r') as f:
@@ -30,7 +170,7 @@ def parse_spliceai_vcf(vcf_file):
                 match = re.search(r'SPLICEAI=[^|]+\|([\d.]+)\|([\d.]+)\|([\d.]+)\|([\d.]+)', info)
                 if match:
                     spliceai_scores = [float(match.group(i)) for i in range(1, 5)]
-                    max_spliceai = max(spliceai_scores)
+                    max_spliceai = max(spliceai_scores)  # Use the max score
                     spliceai_data.append({
                         "chromosome": chrom,
                         "position": pos,
@@ -40,80 +180,14 @@ def parse_spliceai_vcf(vcf_file):
                     })
     return pd.DataFrame(spliceai_data)
 
-def hill_function(spliceai_score, kd_base=1.0, n=2.0):
-    kd_mutated = kd_base / (1 + spliceai_score)
-    repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
-    return repression_probability
-
+# Load SpliceAI scores from VCF
 vcf_file = "cry1_spliceai.vcf"
-df = parse_spliceai_vcf(vcf_file)
+df_spliceai = parse_spliceai_vcf(vcf_file)
 
-df["DSPS_probability"] = df["SpliceAI_max"].apply(hill_function)
+# Apply Hill function
+df_spliceai["DSPS_probability"] = df_spliceai["SpliceAI_max"].apply(hill_function)
 
-df.to_csv("cry1_intron10_dsps_predictions.csv", index=False)
-print(df.head())
+# Save results
+df_spliceai.to_csv("cry1_intron10_dsps_predictions.csv", index=False)
 
-mutated_data = np.load("/content/MUTATION_DATA_TRAIN_6000.npz", allow_pickle=True)
-mutated_test = mutated_data['arr_0'][:1000]
-np.savez_compressed("MUTATED_DATA_TEST_1000_6000", arr_0=np.array(mutated_test))
-mutated_val = mutated_data['arr_0'][5000:]
-np.savez_compressed("MUTATED_DATA_VAL_1000_6000", arr_0=np.array(mutated_val))
-mutated_train = mutated_data['arr_0'][1000:5000]
-np.savez_compressed("MUTATED_DATA_TRAIN_5000_6000", arr_0=np.array(mutated_train))
-
-def load_sequences(data):
-    encoded_sequences = None
-    for key in data.files:
-        temp_sequences = data[key]
-        if temp_sequences.ndim == 2:
-            temp_sequences = np.expand_dims(temp_sequences, axis=1)
-        if temp_sequences.ndim == 3:
-            encoded_sequences = temp_sequences
-            break
-    return encoded_sequences
-
-mutated_test = load_sequences(np.load("/content/MUTATED_DATA_TEST_1000_6000_TRUE_3.npz", allow_pickle=True))
-mutated_test_label = df["DSPS_probability"][:1000].values  # Use DSPS probabilities as labels
-mutated_test, mutated_test_label = shuffle(mutated_test, mutated_test_label, random_state=42)
-
-mutated_val = load_sequences(np.load("/content/MUTATED_DATA_VAL_1000_6000_TRUE_2.npz", allow_pickle=True))
-mutated_val_label = df["DSPS_probability"][5000:].values  # Use DSPS probabilities as labels
-mutated_val, mutated_val_label = shuffle(mutated_val, mutated_val_label, random_state=42)
-
-mutated_train = load_sequences(np.load("/content/MUTATED_DATA_TRAIN_5000_6000_TRUE_2.npz", allow_pickle=True))
-mutated_train_label = df["DSPS_probability"][1000:5000].values  # Use DSPS probabilities as labels
-mutated_train, mutated_train_label = shuffle(mutated_train, mutated_train_label, random_state=42)
-
-X_train = np.concatenate([mutated_train], axis=0)
-y_train = np.concatenate([mutated_train_label], axis=0)
-X_train, y_train = shuffle(X_train, y_train, random_state=1)
-
-scaler = MinMaxScaler()
-X_train_scaled = scaler.fit_transform(X_train.reshape(X_train.shape[0], -1))
-
-pca_data = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_train_scaled)
-plt.figure(figsize=(10, 8))
-plt.scatter(pca_data[:, 0], pca_data[:, 1], c=y_train, cmap='coolwarm', alpha=0.7)
-plt.colorbar(label='DSPS Probability')
-plt.title("t-SNE Projection of Training Data")
-plt.xlabel("t-SNE Component 1")
-plt.ylabel("t-SNE Component 2")
-plt.show()
-
-model = Sequential([
-    Bidirectional(LSTM(32, activation="relu", return_sequences=True), input_shape=(X_train.shape[1], X_train.shape[2])),
-    Dropout(0.2),
-    LSTM(16, activation="relu"),
-    Dropout(0.2),
-    Dense(8, activation="relu"),
-    Dense(1, activation="sigmoid")  # Output a probability (0 to 1)
-])
-
-model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
-model.summary()
-
-model.fit(X_train, y_train, epochs=50, batch_size=64, validation_data=(mutated_val, mutated_val_label), callbacks=[
-    ModelCheckpoint("best_model.h5", save_best_only=True),
-    EarlyStopping(patience=5, restore_best_weights=True),
-    CSVLogger("training_log.csv")
-])
+print(df_spliceai.head())

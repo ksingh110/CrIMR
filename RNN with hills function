@@ -3,17 +3,17 @@ import pandas as pd
 from tensorflow.keras.models import load_model
 import random
 
-rnn_model = load_model("rnn_mutation_model.h5")  # Replace with model path
+rnn_model = load_model("6000_5_if_new_best_model.keras")  # Replace with model path
 
 
 def mutation_prob(sequence):
     sequence = np.expand_dims(sequence, axis=0) 
     return rnn_model.predict(sequence)[0][0]  
 
-INTRON_10_START = 107492400 
-INTRON_10_END = 107492537  
+INTRON_10_START = 106991364
+INTRON_10_END = 107004364
 
-csv_file = "cry1_mutations.csv"  # Replace with file path
+csv_file = "cry1mutations(1).csv"  # Replace with file path
 mutations = pd.read_csv(csv_file)
 
 vcf_header = """##fileformat=VCFv4.2
@@ -36,7 +36,7 @@ for _, row in mutations.iterrows():
     if INTRON_10_START <= pos <= INTRON_10_END:
         vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\tSPLICEAI={spliceai_score}")
 
-input_vcf = "cry1_variants_with_rnn.vcf"
+input_vcf = "spliceaiscores.vcf"
 with open(input_vcf, "w") as f:
     f.write(vcf_header + "\n")
     f.write("\n".join(vcf_rows))

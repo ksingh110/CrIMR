@@ -4,6 +4,8 @@ import os
 import numpy as np
 from APP_Preprocessing import onehotencoder  # Assuming this is the preprocessing function
 from APP_Preprocessing import process
+import pandas as pd
+import umap 
 
 # Load your trained model
 model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras") 
@@ -14,7 +16,16 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
-
+def apply_umap_on_data(X):
+    # Reshape the data to 2D for UMAP
+    X_flat = X.reshape(X.shape[0], -1)
+    
+    # Initialize UMAP model
+    umap_model = umap.UMAP(n_components=2, n_neighbors=15, min_dist=0.1, random_state=42)
+    
+    # Apply UMAP transformation
+    X_umap = umap_model.fit_transform(X_flat)
+    return X_umap
 @app.route('/')
 def home():
     return render_template('landing.html')
@@ -29,36 +40,62 @@ def real_thing():
     return render_template('real_thing.html')
 
 @app.route('/predict', methods=['POST'])
+
 def predict():
     try:
-        # Check if the request contains the file
+        # Ensure a file is uploaded
         if 'file' not in request.files:
-            return jsonify({'error': 'No file part'}), 400
+            return jsonify({'error': 'No file uploaded'}), 400
         
         file = request.files['file']
         
-        # Check if a file is selected
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
-        
-        # Save the file temporarily
+
+        # Save the uploaded file
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
 
-        # Preprocess the file (assuming it's a FASTA sequence file)
-        with open(file_path, 'r', errors="ignore")  as f:  # Added encoding='latin-1'
-            fasta_sequence = f.read()
+        # Load data based on file type
+        if file.filename.endswith('.npy'):
+            input_data = np.load(file_path, allow_pickle=True)
+        elif file.filename.endswith('.npz'):
+            npz_data = np.load(file_path, allow_pickle=True)
+            first_key = list(npz_data.files)[0]  # Get the first key
+            input_data = npz_data[first_key]  # Extract the first stored array
+        elif file.filename.endswith('.csv'):
+            df = pd.read_csv(file_path)
+            input_data = df.to_numpy()
+        else:
+            return jsonify({'error': 'Unsupported file format. Please upload .npy, .npz, or .csv'}), 400
+        X_umap = apply_umap_on_data(input_data)
 
-        # Preprocess the sequence
-        processed_data = onehotencoder(fasta_sequence, max_length=13000)
-        processed_data = np.expand_dims(processed_data, axis=1)# Flatten it before passing to model
-        preprocessed = process(processed_data)
-
+        # Ensure input data has the correct shape (batch_size, timesteps, features)
+         # Convert (samples, features) → (samples, 1, features)
+        
         # Make prediction
-        prediction = model.predict(fasta_sequence).flatten()
+        prediction = model.predict(X_umap).flatten()
 
-        # Return prediction as JSON
-        return jsonify({'prediction': prediction[0]})
+        # Return the prediction as JSON
+        prediction_prob = model.predict(X_umap).flatten()
+
+        # Compute the probabilities for mutation and non-mutation
+        mutation_prob = float(prediction_prob[0])  # Assuming the second class is "mutation"
+        non_mutation_prob = 1 - mutation_prob  # Assuming only two classes: mutation and non-mutation
+
+        # If probability > 0.5, it's DSPD, else it's non-DSPD
+        prediction = 'DSPD' if mutation_prob > 0.5 else 'Non-DSPD'
+
+        # Return the prediction and probabilities
+        return jsonify({
+            'prediction': prediction,
+            'mutation_prob': mutation_prob,
+            'non_mutation_prob': non_mutation_prob
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

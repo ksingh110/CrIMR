@@ -15,7 +15,17 @@
             height: 100vh;
             background: linear-gradient(to bottom, #000000, #315a81);
         }
-
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-50px); /* Starts from the left */
+                visibility: visible;
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
         .main-container {
             display: flex;
             gap: 50px;
@@ -71,6 +81,7 @@
             outline: none;
             text-align: center;
         }
+
         input[type="file"]:hover {
             background-image: linear-gradient(45deg, #a43400, #f87c00);
             box-shadow: 0 0 5px #f87c00;
@@ -120,6 +131,96 @@
         .nav-button:hover {
             color: #f87c00;
         }
+
+        canvas {
+            width: 100%;
+            height: 100px;
+        }
+
+        /* Modal Style */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+            padding-top: 60px;
+        }
+
+        /* Modal Content */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        /* Close Button */
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 15px;
+            right: 25px;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Prediction Result */
+        .prediction-result {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        /* Custom rounded bars */
+        .chart {
+            position: relative;
+            height: 30px;
+            border-radius: 20px;
+            background: linear-gradient(45deg, #a43400, #f87c00);
+            box-shadow: 0 0 5px #f87c00;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+            color: white;
+            font-weight: bold;
+            width: 0%; /* Start with no width */
+            transition: width 2s ease-in-out; 
+            width: 100%;
+        }
+
+        .chart-text {
+            position: absolute;
+            right: 10px;
+            font-size: 16px;
+            opacity: 0;
+            animation: fadeInLeft 1s;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -136,10 +237,8 @@
             <form id="prediction-form" enctype="multipart/form-data">
                 <label for="fileInput">Upload a file:</label>
                 <input type="file" id="fileInput" name="fileInput" required>
-                <button type="submit">Predict</button>
+                <button type="button" id="predictButton">Predict</button>
             </form>
-            <h3>Prediction Result:</h3>
-            <p id="result"></p>
         </div>
         <div class="container right-container">
             <h1>About DSPDiagnosis</h1>
@@ -147,16 +246,32 @@
             <p>Our model analyzes genetic sequences to detect potential markers of Delayed Sleep Phase Disorder (DSPD) using CrIMR technology. Upload a file to receive an analysis.</p>
         </div>
     </div>
-    <script>
-        document.getElementById('prediction-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
+    
+    <!-- Modal for Prediction Result and Custom Bars -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 class="prediction-result" id="prediction-result-text"></h2>
+            <div class="chart-container">
+                <div class="chart" id="mutation-bar">
+                    <div class="chart-text" id="mutation-percentage"></div>
+                </div>
+                <div class="chart" id="non-mutation-bar">
+                    <div class="chart-text" id="non-mutation-percentage"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            // Get the file from the input
+    <!-- Include Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        // Function to trigger the prediction when the "Predict" button is clicked
+        document.getElementById('predictButton').addEventListener('click', async function() {
             const fileInput = document.getElementById('fileInput').files[0];
-            
             if (!fileInput) {
-                document.getElementById('result').textContent = "No file selected!";
-                document.getElementById('result').classList.add('error');
+                alert('Please select a file to upload.');
                 return;
             }
 
@@ -164,36 +279,53 @@
             formData.append('file', fileInput);
 
             try {
-                // Fetch the prediction result from Flask backend
                 const response = await fetch('http://127.0.0.1:5000/predict', {
                     method: 'POST',
                     body: formData,
                 });
 
-                // Handle non-OK responses (HTTP status codes other than 2xx)
-                if (!response.ok) {
-                    throw new Error(`Error: ${response.statusText}`);
-                }
-
-                // Parse the JSON response
                 const result = await response.json();
 
-                // Update the result section with the prediction
-                if (result.prediction !== undefined) {
-                    document.getElementById('result').textContent = `Prediction: ${result.prediction}`;
-                    document.getElementById('result').classList.remove('error');
-                } else if (result.error) {
-                    document.getElementById('result').textContent = `Error: ${result.error}`;
-                    document.getElementById('result').classList.add('error');
-                } else {
-                    document.getElementById('result').textContent = "Unknown error occurred.";
-                    document.getElementById('result').classList.add('error');
-                }
+                // Display the prediction result
+                const predictionText = result.prediction === 'DSPD' ? 'DSPD' : 'Non-DSPD';
+                document.getElementById('prediction-result-text').textContent = `Prediction: ${predictionText}`;
+
+                // Set up rounded bar chart-like shapes
+                const mutationBar = document.getElementById('mutation-bar');
+                const nonMutationBar = document.getElementById('non-mutation-bar');
+
+                const mutationPercentage = (result.mutation_prob * 100).toFixed(0);
+                const nonMutationPercentage = (result.non_mutation_prob * 100).toFixed(0);
+
+                // Set the widths and display percentages on the far right
+                mutationBar.style.width = `${mutationPercentage}%`;
+                nonMutationBar.style.width = `${nonMutationPercentage}%`;
+
+                document.getElementById('mutation-percentage').textContent = `${mutationPercentage}%`;
+                document.getElementById('non-mutation-percentage').textContent = `${nonMutationPercentage}%`;
+
+                // Show the modal with prediction and custom bars
+                document.getElementById('resultModal').style.display = 'block';
             } catch (error) {
-                document.getElementById('result').textContent = `Error: ${error.message}`;
-                document.getElementById('result').classList.add('error');
+                alert(`Error: ${error.message}`);
             }
         });
+
+        // Get the modal and close button
+        var modal = document.getElementById('resultModal');
+        var closeBtn = document.getElementsByClassName('close')[0];
+
+        // Close the modal when the user clicks the "x"
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+
+        // Close the modal if the user clicks anywhere outside of the modal
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>

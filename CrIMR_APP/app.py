@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 import tensorflow as tf
 import os
+import numpy as np
 from APP_Preprocessing import onehotencoder  # Assuming this is the preprocessing function
 from APP_Preprocessing import process
 
 # Load your trained model
 model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras") 
-
 
 app = Flask(__name__)
 
@@ -46,20 +46,19 @@ def predict():
         file.save(file_path)
 
         # Preprocess the file (assuming it's a FASTA sequence file)
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', errors="ignore")  as f:  # Added encoding='latin-1'
             fasta_sequence = f.read()
 
         # Preprocess the sequence
-        processed_data = onehotencoder(fasta_sequence, max_length=102500)
+        processed_data = onehotencoder(fasta_sequence, max_length=13000)
+        processed_data = np.expand_dims(processed_data, axis=1)# Flatten it before passing to model
         preprocessed = process(processed_data)
-        # Reshape for the model if necessary
-      
 
         # Make prediction
-        prediction = model.predict(preprocessed).flatten()
+        prediction = model.predict(fasta_sequence).flatten()
 
         # Return prediction as JSON
-        return jsonify({'prediction': prediction.tolist()})
+        return jsonify({'prediction': prediction[0]})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

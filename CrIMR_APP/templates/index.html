@@ -86,7 +86,6 @@
             font-size: 16px;
         }
 
-
         .top-bar {
             background-color: transparent;
             width: 100%;
@@ -151,17 +150,45 @@
     <script>
         document.getElementById('prediction-form').addEventListener('submit', async function(event) {
             event.preventDefault();
+
+            // Get the file from the input
             const fileInput = document.getElementById('fileInput').files[0];
+            
+            if (!fileInput) {
+                document.getElementById('result').textContent = "No file selected!";
+                document.getElementById('result').classList.add('error');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('file', fileInput);
+
             try {
+                // Fetch the prediction result from Flask backend
                 const response = await fetch('http://127.0.0.1:5000/predict', {
                     method: 'POST',
                     body: formData,
                 });
+
+                // Handle non-OK responses (HTTP status codes other than 2xx)
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+
+                // Parse the JSON response
                 const result = await response.json();
-                document.getElementById('result').textContent = result.prediction ? `Prediction: ${result.prediction}` : `Error: ${result.error}`;
-                document.getElementById('result').classList.toggle('error', !result.prediction);
+
+                // Update the result section with the prediction
+                if (result.prediction !== undefined) {
+                    document.getElementById('result').textContent = `Prediction: ${result.prediction}`;
+                    document.getElementById('result').classList.remove('error');
+                } else if (result.error) {
+                    document.getElementById('result').textContent = `Error: ${result.error}`;
+                    document.getElementById('result').classList.add('error');
+                } else {
+                    document.getElementById('result').textContent = "Unknown error occurred.";
+                    document.getElementById('result').classList.add('error');
+                }
             } catch (error) {
                 document.getElementById('result').textContent = `Error: ${error.message}`;
                 document.getElementById('result').classList.add('error');

@@ -11,23 +11,20 @@ def get_CRY1_gene():
         return None  # Return None if the request fails
 
 # One-hot encode sequence and return a 1D array
-def onehotencoder(fasta_sequence, max_length=102500):
-    sequence_array = np.array(list(fasta_sequence))  # Convert the sequence into a list of characters
+def onehotencoder(fasta_sequence, max_length=13000):
+    sequence_array = np.array(list(fasta_sequence))
     label_encoder = LabelEncoder()
-    integer_encoded = label_encoder.fit_transform(sequence_array)  # Encode each nucleotide as an integer
-    onehotencoder = OneHotEncoder(sparse_output=False, dtype=np.float32)  # OneHotEncoder setup
-    integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)  # Reshape for one-hot encoding
-    onehot_sequence = onehotencoder.fit_transform(integer_encoded).astype(np.float32)  # Apply one-hot encoding
-    
-    # Padding or truncating the sequence to the desired max length
+    integer_encoded = label_encoder.fit_transform(sequence_array)
+    onehotencoder = OneHotEncoder(sparse_output=False, dtype=np.float32)
+    integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
+    onehot_sequence = onehotencoder.fit_transform(integer_encoded).astype(np.float32)
     if onehot_sequence.shape[0] < max_length:
         pad_size = max_length - onehot_sequence.shape[0]
-        padding = np.zeros((pad_size, onehot_sequence.shape[1]))  # Create padding of zeros
-        onehot_sequence = np.vstack([onehot_sequence, padding])  # Pad the sequence
+        padding = np.zeros((pad_size, onehot_sequence.shape[1]))
+        onehot_sequence = np.vstack([onehot_sequence, padding])
     else:
-        onehot_sequence = onehot_sequence[:max_length, :]  # Truncate the sequence if it exceeds max length
-    
-    return onehot_sequence  # Return the sequence without flattening for compatibility with LSTM
+        onehot_sequence = onehot_sequence[:max_length, :]
+    return onehot_sequence.flatten() # Return the sequence without flattening for compatibility with LSTM
 
 # Function to process sequence (one-hot encoded) and return it in a format suitable for further use
 def process(sequence):

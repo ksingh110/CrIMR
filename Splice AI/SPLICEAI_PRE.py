@@ -4,7 +4,7 @@ import re
 # --- Step 1: Read CSV and Create VCF File ---
 
 # Replace with your actual CSV file path containing your CRY1 mutation data
-csv_file = "cry1_mutations.csv"
+csv_file = "cry1_mutations(1).csv"
 mutations = pd.read_csv(csv_file)
 
 # Define VCF header

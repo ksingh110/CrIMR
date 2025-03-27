@@ -77,7 +77,21 @@ def predict():
         prediction = model.predict(X_umap).flatten()
 
         # Return the prediction as JSON
-        return jsonify({'prediction': prediction.tolist()})
+        prediction_prob = model.predict(X_umap).flatten()
+
+        # Compute the probabilities for mutation and non-mutation
+        mutation_prob = float(prediction_prob[0])  # Assuming the second class is "mutation"
+        non_mutation_prob = 1 - mutation_prob  # Assuming only two classes: mutation and non-mutation
+
+        # If probability > 0.5, it's DSPD, else it's non-DSPD
+        prediction = 'DSPD' if mutation_prob > 0.5 else 'Non-DSPD'
+
+        # Return the prediction and probabilities
+        return jsonify({
+            'prediction': prediction,
+            'mutation_prob': mutation_prob,
+            'non_mutation_prob': non_mutation_prob
+        })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -15,7 +15,17 @@
             height: 100vh;
             background: linear-gradient(to bottom, #000000, #315a81);
         }
-
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-50px); /* Starts from the left */
+                visibility: visible;
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
         .main-container {
             display: flex;
             gap: 50px;
@@ -124,7 +134,88 @@
 
         canvas {
             width: 100%;
-            height: 300px;
+            height: 100px;
+        }
+
+        /* Modal Style */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+            padding-top: 60px;
+        }
+
+        /* Modal Content */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        /* Close Button */
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 15px;
+            right: 25px;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Prediction Result */
+        .prediction-result {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        /* Custom rounded bars */
+        .chart {
+            position: relative;
+            height: 30px;
+            border-radius: 20px;
+            background: linear-gradient(45deg, #a43400, #f87c00);
+            box-shadow: 0 0 5px #f87c00;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .chart-text {
+            position: absolute;
+            right: 10px;
+            font-size: 16px;
+            opacity: 0;
+            animation: fadeInLeft 1s
         }
     </style>
 </head>
@@ -142,11 +233,8 @@
             <form id="prediction-form" enctype="multipart/form-data">
                 <label for="fileInput">Upload a file:</label>
                 <input type="file" id="fileInput" name="fileInput" required>
-                <button type="submit">Predict</button>
+                <button type="button" id="predictButton">Predict</button>
             </form>
-            <h3>Prediction Result:</h3>
-            <p id="result"></p>
-            <canvas id="pieChart"></canvas>  <!-- Canvas for Pie Chart -->
         </div>
         <div class="container right-container">
             <h1>About DSPDiagnosis</h1>
@@ -155,60 +243,85 @@
         </div>
     </div>
     
+    <!-- Modal for Prediction Result and Custom Bars -->
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 class="prediction-result" id="prediction-result-text"></h2>
+            <div class="chart-container">
+                <div class="chart" id="mutation-bar">
+                    <div class="chart-text" id="mutation-percentage"></div>
+                </div>
+                <div class="chart" id="non-mutation-bar">
+                    <div class="chart-text" id="non-mutation-percentage"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Include Chart.js library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script>
-        document.getElementById('prediction-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
+        // Function to trigger the prediction when the "Predict" button is clicked
+        document.getElementById('predictButton').addEventListener('click', async function() {
             const fileInput = document.getElementById('fileInput').files[0];
+            if (!fileInput) {
+                alert('Please select a file to upload.');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('file', fileInput);
-            
+
             try {
                 const response = await fetch('http://127.0.0.1:5000/predict', {
                     method: 'POST',
                     body: formData,
                 });
+
                 const result = await response.json();
-                
+
                 // Display the prediction result
-                document.getElementById('result').textContent = result.prediction ? `Prediction: ${result.prediction}` : `Error: ${result.error}`;
-                
-                // Create Pie Chart using Chart.js
-                const ctx = document.getElementById('pieChart').getContext('2d');
-                const pieChart = new Chart(ctx, {
-                    type: 'pie',
-                    data: {
-                        labels: ['Mutation', 'Non-Mutation'],
-                        datasets: [{
-                            label: 'Prediction Probabilities',
-                            data: [result.mutation_prob, result.non_mutation_prob],
-                            backgroundColor: ['#FF5733', '#33FF57'],
-                            borderColor: ['#FF5733', '#33FF57'],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(tooltipItem) {
-                                        return tooltipItem.label + ': ' + tooltipItem.raw.toFixed(2) + '%';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
+                const predictionText = result.prediction === 'DSPD' ? 'DSPD' : 'Non-DSPD';
+                document.getElementById('prediction-result-text').textContent = `Prediction: ${predictionText}`;
+
+                // Set up rounded bar chart-like shapes
+                const mutationBar = document.getElementById('mutation-bar');
+                const nonMutationBar = document.getElementById('non-mutation-bar');
+
+                const mutationPercentage = (result.mutation_prob * 100).toFixed(0);
+                const nonMutationPercentage = (result.non_mutation_prob * 100).toFixed(0);
+
+                // Set the widths and display percentages on the far right
+                mutationBar.style.width = `${mutationPercentage}%`;
+                nonMutationBar.style.width = `${nonMutationPercentage}%`;
+
+                document.getElementById('mutation-percentage').textContent = `${mutationPercentage}%`;
+                document.getElementById('non-mutation-percentage').textContent = `${nonMutationPercentage}%`;
+
+                // Show the modal with prediction and custom bars
+                document.getElementById('resultModal').style.display = 'block';
             } catch (error) {
-                document.getElementById('result').textContent = `Error: ${error.message}`;
+                alert(`Error: ${error.message}`);
             }
         });
+
+        // Get the modal and close button
+        var modal = document.getElementById('resultModal');
+        var closeBtn = document.getElementsByClassName('close')[0];
+
+        // Close the modal when the user clicks the "x"
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+
+        // Close the modal if the user clicks anywhere outside of the modal
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>

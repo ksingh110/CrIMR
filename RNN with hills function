@@ -15,9 +15,8 @@ from tensorflow.keras import regularizers
 from sklearn.manifold import TSNE
 import umap.umap_ as umap
 
-# Define exon 11 coordinates (GRCh38)
-EXON_11_START = 96257
-EXON_11_END = 100513
+INTRON_10_START = 107492400
+INTRON_10_END = 107492537
 
 def parse_spliceai_vcf(vcf_file):
     spliceai_data = []
@@ -27,7 +26,7 @@ def parse_spliceai_vcf(vcf_file):
                 continue  # Skip header
             fields = line.strip().split("\t")
             chrom, pos, ref, alt, info = fields[0], int(fields[1]), fields[3], fields[4], fields[7]
-            if EXON_11_START <= pos <= EXON_11_END:
+            if INTRON_10_START <= pos <= INTRON_10_END:
                 match = re.search(r'SPLICEAI=[^|]+\|([\d.]+)\|([\d.]+)\|([\d.]+)\|([\d.]+)', info)
                 if match:
                     spliceai_scores = [float(match.group(i)) for i in range(1, 5)]
@@ -48,8 +47,10 @@ def hill_function(spliceai_score, kd_base=1.0, n=2.0):
 
 vcf_file = "cry1_spliceai.vcf"
 df = parse_spliceai_vcf(vcf_file)
+
 df["DSPS_probability"] = df["SpliceAI_max"].apply(hill_function)
-df.to_csv("cry1_exon11_dsps_predictions.csv", index=False)
+
+df.to_csv("cry1_intron10_dsps_predictions.csv", index=False)
 print(df.head())
 
 mutated_data = np.load("/content/MUTATION_DATA_TRAIN_6000.npz", allow_pickle=True)
@@ -72,15 +73,15 @@ def load_sequences(data):
     return encoded_sequences
 
 mutated_test = load_sequences(np.load("/content/MUTATED_DATA_TEST_1000_6000_TRUE_3.npz", allow_pickle=True))
-mutated_test_label = np.ones(mutated_test.shape[0])
+mutated_test_label = df["DSPS_probability"][:1000].values  # Use DSPS probabilities as labels
 mutated_test, mutated_test_label = shuffle(mutated_test, mutated_test_label, random_state=42)
 
 mutated_val = load_sequences(np.load("/content/MUTATED_DATA_VAL_1000_6000_TRUE_2.npz", allow_pickle=True))
-mutated_val_label = np.ones(mutated_val.shape[0])
+mutated_val_label = df["DSPS_probability"][5000:].values  # Use DSPS probabilities as labels
 mutated_val, mutated_val_label = shuffle(mutated_val, mutated_val_label, random_state=42)
 
 mutated_train = load_sequences(np.load("/content/MUTATED_DATA_TRAIN_5000_6000_TRUE_2.npz", allow_pickle=True))
-mutated_train_label = np.ones(mutated_train.shape[0])
+mutated_train_label = df["DSPS_probability"][1000:5000].values  # Use DSPS probabilities as labels
 mutated_train, mutated_train_label = shuffle(mutated_train, mutated_train_label, random_state=42)
 
 X_train = np.concatenate([mutated_train], axis=0)
@@ -93,7 +94,7 @@ X_train_scaled = scaler.fit_transform(X_train.reshape(X_train.shape[0], -1))
 pca_data = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_train_scaled)
 plt.figure(figsize=(10, 8))
 plt.scatter(pca_data[:, 0], pca_data[:, 1], c=y_train, cmap='coolwarm', alpha=0.7)
-plt.colorbar(label='Class Label')
+plt.colorbar(label='DSPS Probability')
 plt.title("t-SNE Projection of Training Data")
 plt.xlabel("t-SNE Component 1")
 plt.ylabel("t-SNE Component 2")
@@ -105,8 +106,14 @@ model = Sequential([
     LSTM(16, activation="relu"),
     Dropout(0.2),
     Dense(8, activation="relu"),
-    Dense(1, activation="sigmoid")
+    Dense(1, activation="sigmoid")  # Output a probability (0 to 1)
 ])
 
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
 model.summary()
+
+model.fit(X_train, y_train, epochs=50, batch_size=64, validation_data=(mutated_val, mutated_val_label), callbacks=[
+    ModelCheckpoint("best_model.h5", save_best_only=True),
+    EarlyStopping(patience=5, restore_best_weights=True),
+    CSVLogger("training_log.csv")
+])

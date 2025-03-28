@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
 import random
-
+keras.open("6000_5_if_new_best_model.keras")
 rnn_model = load_model("6000_5_if_new_best_model.keras")  # Replace with model path
 
 

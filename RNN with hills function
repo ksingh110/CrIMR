@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
 import random
+
 keras.open("6000_5_if_new_best_model.keras")
 rnn_model = load_model("6000_5_if_new_best_model.keras")  # Replace with model path
 
@@ -18,7 +19,7 @@ mutations = pd.read_csv(csv_file)
 
 vcf_header = """##fileformat=VCFv4.2
 ##INFO=<ID=SPLICEAI,Number=.,Type=String,Description="SpliceAI scores">
-#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"""
+#CHROM\\tPOS\\tID\\tREF\\tALT\\tQUAL\\tFILTER\\tINFO"""
 
 vcf_rows = []
 for _, row in mutations.iterrows():
@@ -34,12 +35,12 @@ for _, row in mutations.iterrows():
     spliceai_score = mutation_prob 
     
     if INTRON_10_START <= pos <= INTRON_10_END:
-        vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\tSPLICEAI={spliceai_score}")
+        vcf_rows.append(f"{chrom}\\t{pos}\\t.\\t{ref}\\t{alt}\\t.\\t.\\tSPLICEAI={spliceai_score}")
 
 input_vcf = "spliceaiscores.vcf"
 with open(input_vcf, "w") as f:
-    f.write(vcf_header + "\n")
-    f.write("\n".join(vcf_rows))
+    f.write(vcf_header + "\\n")
+    f.write("\\n".join(vcf_rows))
 
 print(f"VCF file created: {input_vcf}")
 
@@ -63,7 +64,7 @@ def hill_function(spliceai_score, kd_base=1.0, n=2.0):
 mutations['DSPS_probability'] = mutations['SpliceAI_max'].apply(hill_function)
 
 
-mutations_INTRON10 = mutations[(mutations['startpos'] >= INTRON_10_START_10_START) & (mutations['startpos'] <= INTRON_10_ENDN_10_END)]
+mutations_INTRON10 = mutations[(mutations['startpos'] >= INTRON_10_START) & (mutations['startpos'] <= INTRON_10_END)]
 
 mutations_INTRON10.to_csv("cry1_intron10_spliceai_dsps_predictions.csv", index=False)
 

@@ -3,9 +3,8 @@ import pandas as pd
 from tensorflow.keras.models import load_model
 import random
 
-keras.open("6000_5_if_new_best_model.keras")
+# Load model
 rnn_model = load_model("6000_5_if_new_best_model.keras")  # Replace with model path
-
 
 def mutation_prob(sequence):
     sequence = np.expand_dims(sequence, axis=0) 
@@ -14,12 +13,14 @@ def mutation_prob(sequence):
 INTRON_10_START = 106991364
 INTRON_10_END = 107004364
 
+# Fix the file path and ensure it points to your actual CSV file
 csv_file = "cry1mutations(1).csv"  # Replace with file path
 mutations = pd.read_csv(csv_file)
 
+# Correct the VCF header with proper escape sequences
 vcf_header = """##fileformat=VCFv4.2
 ##INFO=<ID=SPLICEAI,Number=.,Type=String,Description="SpliceAI scores">
-#CHROM\\tPOS\\tID\\tREF\\tALT\\tQUAL\\tFILTER\\tINFO"""
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"""
 
 vcf_rows = []
 for _, row in mutations.iterrows():
@@ -31,19 +32,21 @@ for _, row in mutations.iterrows():
     mutation_sequence = [ref, alt]  
 
     # Predict mutation probability using the RNN
-    mutation_prob = mutation_prob(np.array([mutation_sequence]))  
-    spliceai_score = mutation_prob 
+    mutation_prob_val = mutation_prob(np.array([mutation_sequence]))  # Fixed variable name
+    spliceai_score = mutation_prob_val 
     
     if INTRON_10_START <= pos <= INTRON_10_END:
-        vcf_rows.append(f"{chrom}\\t{pos}\\t.\\t{ref}\\t{alt}\\t.\\t.\\tSPLICEAI={spliceai_score}")
+        vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\tSPLICEAI={spliceai_score}")
 
+# Ensure the path to the output VCF is correct
 input_vcf = "spliceaiscores.vcf"
 with open(input_vcf, "w") as f:
-    f.write(vcf_header + "\\n")
-    f.write("\\n".join(vcf_rows))
+    f.write(vcf_header + "\n")
+    f.write("\n".join(vcf_rows))
 
 print(f"VCF file created: {input_vcf}")
 
+# Function to simulate SpliceAI score
 def simulate_spliceai_score(chrom, pos, ref, alt):
     return round(random.uniform(0, 1), 4)
 
@@ -52,6 +55,7 @@ mutations['SpliceAI_max'] = mutations.apply(
     axis=1
 )
 
+# Hill function to calculate DSPD probability
 def hill_function(spliceai_score, kd_base=1.0, n=2.0):
     """
     This function computes the DSPD probability using the Hill function.
@@ -63,12 +67,13 @@ def hill_function(spliceai_score, kd_base=1.0, n=2.0):
 
 mutations['DSPS_probability'] = mutations['SpliceAI_max'].apply(hill_function)
 
-
+# Filter mutations for Intron 10 region
 mutations_INTRON10 = mutations[(mutations['startpos'] >= INTRON_10_START) & (mutations['startpos'] <= INTRON_10_END)]
 
+# Save results to CSV
 mutations_INTRON10.to_csv("cry1_intron10_spliceai_dsps_predictions.csv", index=False)
 
-print("DSPD probabilities for Intron 11 saved to cry1_intron10_spliceai_dsps_predictions.csv")
+print("DSPD probabilities for Intron 10 saved to cry1_intron10_spliceai_dsps_predictions.csv")
 print(mutations_INTRON10.head())  
 
 print("Results saved in: cry1_intron10_spliceai_dsps_predictions.csv")

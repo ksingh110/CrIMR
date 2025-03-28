@@ -277,11 +277,18 @@
 
             const formData = new FormData();
             formData.append('file', fileInput);
+            
+            // Add a timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            formData.append('timestamp', timestamp);
 
             try {
                 const response = await fetch('http://127.0.0.1:5000/predict', {
                     method: 'POST',
                     body: formData,
+                    headers: {
+                        'Cache-Control': 'no-cache', // Prevent caching of the request
+                    }
                 });
 
                 const result = await response.json();

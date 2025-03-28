@@ -10,7 +10,12 @@ import umap
 # Load your trained model
 model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras") 
 
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
 app = Flask(__name__)
+CORS(app)
+
 
 # Configure file upload folder (make sure to create this folder in your project directory)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
@@ -42,6 +47,7 @@ def real_thing():
 @app.route('/predict', methods=['POST'])
 
 def predict():
+    
     try:
         # Ensure a file is uploaded
         if 'file' not in request.files:

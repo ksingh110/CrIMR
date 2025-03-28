@@ -3,21 +3,23 @@ import pandas as pd
 from tensorflow.keras.models import load_model
 import random
 
-# Load model
-rnn_model = load_model("6000_5_if_new_best_model.keras")  # Replace with model path
+# Load the RNN model
+rnn_model = load_model(r"6000_5_if_new_best_model.keras")  # Replace with your model path using raw string
 
+# Function to predict mutation probability using the RNN
 def mutation_prob(sequence):
     sequence = np.expand_dims(sequence, axis=0) 
     return rnn_model.predict(sequence)[0][0]  
 
+# Define the start and end positions for Intron 10
 INTRON_10_START = 106991364
 INTRON_10_END = 107004364
 
-# Fix the file path and ensure it points to your actual CSV file
-csv_file = "cry1mutations(1).csv"  # Replace with file path
+# Provide the correct path to the CSV file
+csv_file = r"C:\Users\rashm\CrIMR\CrIMR\cry1mutations(1).csv"  # Replace with your actual CSV file path using raw string
 mutations = pd.read_csv(csv_file)
 
-# Correct the VCF header with proper escape sequences
+# Define the VCF header
 vcf_header = """##fileformat=VCFv4.2
 ##INFO=<ID=SPLICEAI,Number=.,Type=String,Description="SpliceAI scores">
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"""
@@ -32,24 +34,27 @@ for _, row in mutations.iterrows():
     mutation_sequence = [ref, alt]  
 
     # Predict mutation probability using the RNN
-    mutation_prob_val = mutation_prob(np.array([mutation_sequence]))  # Fixed variable name
-    spliceai_score = mutation_prob_val 
+    mutation_prob_value = mutation_prob(np.array([mutation_sequence]))  
+    spliceai_score = mutation_prob_value 
     
     if INTRON_10_START <= pos <= INTRON_10_END:
         vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\tSPLICEAI={spliceai_score}")
 
-# Ensure the path to the output VCF is correct
-input_vcf = "spliceaiscores.vcf"
+# Specify the output VCF file name
+input_vcf = r"C:\Users\rashm\CrIMR\CrIMR\spliceaiscores.vcf"  # Use raw string to prevent escape sequence errors
+
+# Write the VCF data to the file
 with open(input_vcf, "w") as f:
     f.write(vcf_header + "\n")
     f.write("\n".join(vcf_rows))
 
 print(f"VCF file created: {input_vcf}")
 
-# Function to simulate SpliceAI score
+# Simulate SpliceAI scores for testing
 def simulate_spliceai_score(chrom, pos, ref, alt):
     return round(random.uniform(0, 1), 4)
 
+# Apply simulated SpliceAI scores to mutations DataFrame
 mutations['SpliceAI_max'] = mutations.apply(
     lambda row: simulate_spliceai_score(row['chromosome'], row['startpos'], row['ref'], row['alt']),
     axis=1
@@ -65,15 +70,17 @@ def hill_function(spliceai_score, kd_base=1.0, n=2.0):
     repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
     return repression_probability
 
+# Apply Hill function to calculate DSPS probability
 mutations['DSPS_probability'] = mutations['SpliceAI_max'].apply(hill_function)
 
-# Filter mutations for Intron 10 region
+# Filter mutations in Intron 10
 mutations_INTRON10 = mutations[(mutations['startpos'] >= INTRON_10_START) & (mutations['startpos'] <= INTRON_10_END)]
 
-# Save results to CSV
-mutations_INTRON10.to_csv("cry1_intron10_spliceai_dsps_predictions.csv", index=False)
+# Save the results for Intron 10
+output_file = r"C:\Users\rashm\CrIMR\CrIMR\cry1_intron10_spliceai_dsps_predictions.csv"  # Use raw string for path
+mutations_INTRON10.to_csv(output_file, index=False)
 
 print("DSPD probabilities for Intron 10 saved to cry1_intron10_spliceai_dsps_predictions.csv")
 print(mutations_INTRON10.head())  
 
-print("Results saved in: cry1_intron10_spliceai_dsps_predictions.csv")
+print(f"Results saved in: {output_file}")

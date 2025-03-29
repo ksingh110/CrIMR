@@ -1,86 +1,228 @@
+import requests
 import numpy as np
-import pandas as pd
-from tensorflow.keras.models import load_model
-import random
-
+import tensorflow as tf
+import umap
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 # Load the RNN model
-rnn_model = load_model(r"6000_5_if_new_best_model.keras")  # Replace with your model path using raw string
+rnn_model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras")
+
+# Define base encoding for DNA sequences (one-hot encoding)
+base_encoding = {'A': [1, 0, 0, 0], 'T': [0, 1, 0, 0], 'C': [0, 0, 1, 0], 'G': [0, 0, 0, 1]}
+
+# Function to one-hot encode the sequence
+def one_hot_encode_sequence(sequence):
+    return [base_encoding.get(base, [0, 0, 0, 0]) for base in sequence]  # One-hot encoding
+
+# Function to fetch the reference sequence from UCSC Genome Browser API
+def get_CRY1_gene():
+    response = requests.get("https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr12;start=106991364;end=107004364")
+    if response.status_code == 200:
+        return response.json().get("dna", "").upper()
+    else:
+        return None
+
+# Function to find mutation locations by comparing the reference sequence and mutation sequence
+def get_mutation_location(ref_sequence, mutation_sequence):
+    # Ensure both sequences are the same length
+    if len(ref_sequence) != len(mutation_sequence):
+        raise ValueError("Reference and mutation sequences must have the same length")
+
+    # Compare each base and find the mutation position
+    mutation_positions = []
+    mutations = []
+    for i, (ref_base, mut_base) in enumerate(zip(ref_sequence, mutation_sequence)):
+        if (ref_base != mut_base).any():
+            mutation_positions.append(i)
+            mutations.append((ref_base, mut_base))  # Store ref and alt alleles at this position
+    
+    return mutation_positions, mutations  # Returns mutation positions and (ref, alt) pairs
 
 # Function to predict mutation probability using the RNN
 def mutation_prob(sequence):
-    sequence = np.expand_dims(sequence, axis=0) 
-    return rnn_model.predict(sequence)[0][0]  
+    sequence = np.expand_dims(sequence, axis=0)  # Add batch dimension
+    return rnn_model.predict(sequence)[0][0]  # Predict and return the mutation probability
+
+# Hill function to calculate DSPD probability
+def hill_function(spliceai_score, kd_base=1.0, n=2.0):
+    kd_mutated = kd_base / (1 + spliceai_score)
+    repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
+    return repression_probability
+
+# Define the start and end positions for Intron 10
+INTRON_10_START = 106991364
+INTRON_10_END = 107004364
+file_path = "test1.npz"
+# Load mutation sequence from the .npz file
+npz_data = np.load(file_path, allow_pickle=True)
+first_key = list(npz_data.files)[0]  # Get the first key
+input_data = npz_data[first_key] 
+ # Adjust the key based on the file content
+def apply_umap_on_data(X):
+    # Reshape the data to 2D for UMAP
+    X_flat = X.reshape(X.shape[0], -1)
+    
+    # Initialize UMAP model
+    umap_model = umap.UMAP(n_components=2, n_neighbors=15, min_dist=0.1, random_state=42)
+    
+    # Apply UMAP transformation
+    X_umap = umap_model.fit_transform(X_flat)
+    return X_umap
+mutation_sequence = apply_umap_on_data(input_data)
+def onehotencoder(fasta_sequence, max_length = 13000):
+    sequence_array = np.array(list(fasta_sequence))
+    label_encoder = LabelEncoder()
+    integer_encoded = label_encoder.fit_transform(sequence_array)
+    onehotencoder = OneHotEncoder(sparse_output=False, dtype = np.float32)
+    integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
+    onehot_sequence = onehotencoder.fit_transform(integer_encoded).astype(np.float32)
+    if onehot_sequence.shape[0] < max_length:
+        pad_size = max_length - onehot_sequence.shape[0]
+        padding = np.zeros((pad_size, onehot_sequence.shape[1]))
+        onehot_sequence = np.vstack([onehot_sequence, padding])
+    else:
+        onehot_sequence = onehot_sequence[:max_length, :] 
+    return(onehot_sequence.flatten())
+# Fetch the reference sequence for the CRY1 gene region from UCSC
+ref_unprocessed = get_CRY1_gene()
+ref_sequence = onehotencoder(ref_unprocessed)
+
+# Check lengths of both sequences
+#print(f"Length of reference sequence: {len(ref_sequence)}")
+#print(f"Length of mutation sequence: {len(mutation_sequence)}")
+
+# Check if lengths match
+if len(ref_sequence) != len(mutation_sequence):
+    # Handle length mismatch: truncate or pad the sequences
+    min_length = min(len(ref_sequence), len(mutation_sequence))
+    ref_sequence = ref_sequence[:min_length]  # Truncate reference sequence
+    mutation_sequence = mutation_sequence[:min_length]  # Truncate mutation sequence
+    print(f"Sequences have been truncated to length: {min_length}")
+
+    # Alternatively, you could pad the shorter sequence, for example:
+    # if len(ref_sequence) < len(mutation_sequence):
+    #     mutation_sequence = mutation_sequence[:len(ref_sequence)]
+    # else:
+    #     ref_sequence = ref_sequence[:len(mutation_sequence)]
+
+# Compare the reference sequence with the mutation sequence
+mutation_positions, mutations = get_mutation_location(ref_sequence, mutation_sequence)
+
+# Output the mutation positions and the corresponding reference and alternate alleles
+for pos, (ref, alt) in zip(mutation_positions, mutations):
+    print(f"Mutation at position {pos + INTRON_10_START}:")
+    print(f"  Reference Allele: {ref}, Alternate Allele: {alt}")
+
+    # Extract the corresponding substring for the mutation
+    mutated_subsequence = mutation_sequence[pos]
+    
+    # One-hot encode the mutated sequence
+    encoded_mutated_sequence = one_hot_encode_sequence(mutation_sequence)
+    encoded_mutated_sequence = np.array(encoded_mutated_sequence, dtype=np.float32)  # Convert to numpy array
+    
+    # Predict mutation probability using the RNN (SpliceAI score)
+    mutation_prob_value = mutation_prob(encoded_mutated_sequence)  # Pass the mutation sequence to the model
+    print(f"Mutation Probability (SpliceAI score): {mutation_prob_value}")
+    
+    # Apply Hill function to calculate DSPD probability
+    dsps_prob = hill_function(mutation_prob_value)
+    print(f"DSPD Probability: {dsps_prob}")
+import requests
+import numpy as np
+import tensorflow as tf
+
+# Load the RNN model
+rnn_model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras")
+
+# Define base encoding for DNA sequences (one-hot encoding)
+base_encoding = {'A': [1, 0, 0, 0], 'T': [0, 1, 0, 0], 'C': [0, 0, 1, 0], 'G': [0, 0, 0, 1]}
+
+# Function to one-hot encode the sequence
+def one_hot_encode_sequence(sequence):
+    return [base_encoding.get(base, [0, 0, 0, 0]) for base in sequence]  # One-hot encoding
+
+# Function to fetch the reference sequence from UCSC Genome Browser API
+def get_CRY1_gene():
+    response = requests.get("https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr12;start=106991364;end=107004364")
+    if response.status_code == 200:
+        return response.json().get("dna", "").upper()
+    else:
+        return None
+
+# Function to find mutation locations by comparing the reference sequence and mutation sequence
+def get_mutation_location(ref_sequence, mutation_sequence):
+    # Ensure both sequences are the same length
+    if len(ref_sequence) != len(mutation_sequence):
+        raise ValueError("Reference and mutation sequences must have the same length")
+
+    # Compare each base and find the mutation position
+    mutation_positions = []
+    mutations = []
+    for i, (ref_base, mut_base) in enumerate(zip(ref_sequence, mutation_sequence)):
+        if ref_base != mut_base:
+            mutation_positions.append(i)
+            mutations.append((ref_base, mut_base))  # Store ref and alt alleles at this position
+    
+    return mutation_positions, mutations  # Returns mutation positions and (ref, alt) pairs
+
+# Function to predict mutation probability using the RNN
+def mutation_prob(sequence):
+    sequence = np.expand_dims(sequence, axis=0)  # Add batch dimension
+    return rnn_model.predict(sequence)[0][0]  # Predict and return the mutation probability
+
+# Hill function to calculate DSPD probability
+def hill_function(spliceai_score, kd_base=1.0, n=2.0):
+    kd_mutated = kd_base / (1 + spliceai_score)
+    repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
+    return repression_probability
 
 # Define the start and end positions for Intron 10
 INTRON_10_START = 106991364
 INTRON_10_END = 107004364
 
-# Provide the correct path to the CSV file
-csv_file = r"C:\Users\rashm\CrIMR\CrIMR\cry1mutations(1).csv"  # Replace with your actual CSV file path using raw string
-mutations = pd.read_csv(csv_file)
+# Load mutation sequence from the .npz file
+mutation_sequence_data = np.load("test1.npz", allow_pickle=True)
+mutation_sequence = mutation_sequence_data['arr_0']  # Adjust the key based on the file content
 
-# Define the VCF header
-vcf_header = """##fileformat=VCFv4.2
-##INFO=<ID=SPLICEAI,Number=.,Type=String,Description="SpliceAI scores">
-#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"""
+# Fetch the reference sequence for the CRY1 gene region from UCSC
+ref_sequence = get_CRY1_gene()
 
-vcf_rows = []
-for _, row in mutations.iterrows():
-    chrom = row['chromosome']
-    pos = row['startpos']
-    ref = row['ref']
-    alt = row['alt']
+# Check lengths of both sequences
+print(f"Length of reference sequence: {len(ref_sequence)}")
+print(f"Length of mutation sequence: {len(mutation_sequence)}")
 
-    mutation_sequence = [ref, alt]  
+# Check if lengths match
+if len(ref_sequence) != len(mutation_sequence):
+    # Handle length mismatch: truncate or pad the sequences
+    min_length = min(len(ref_sequence), len(mutation_sequence))
+    ref_sequence = ref_sequence[:min_length]  # Truncate reference sequence
+    mutation_sequence = mutation_sequence[:min_length]  # Truncate mutation sequence
+    print(f"Sequences have been truncated to length: {min_length}")
 
-    # Predict mutation probability using the RNN
-    mutation_prob_value = mutation_prob(np.array([mutation_sequence]))  
-    spliceai_score = mutation_prob_value 
+    # Alternatively, you could pad the shorter sequence, for example:
+    # if len(ref_sequence) < len(mutation_sequence):
+    #     mutation_sequence = mutation_sequence[:len(ref_sequence)]
+    # else:
+    #     ref_sequence = ref_sequence[:len(mutation_sequence)]
+
+# Compare the reference sequence with the mutation sequence
+mutation_positions, mutations = get_mutation_location(ref_sequence, mutation_sequence)
+
+# Output the mutation positions and the corresponding reference and alternate alleles
+for pos, (ref, alt) in zip(mutation_positions, mutations):
+    print(f"Mutation at position {pos + INTRON_10_START}:")
+    print(f"  Reference Allele: {ref}, Alternate Allele: {alt}")
+
+    # Extract the corresponding substring for the mutation
+    mutated_subsequence = mutation_sequence[pos]
     
-    if INTRON_10_START <= pos <= INTRON_10_END:
-        vcf_rows.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\t.\tSPLICEAI={spliceai_score}")
-
-# Specify the output VCF file name
-input_vcf = r"C:\Users\rashm\CrIMR\CrIMR\spliceaiscores.vcf"  # Use raw string to prevent escape sequence errors
-
-# Write the VCF data to the file
-with open(input_vcf, "w") as f:
-    f.write(vcf_header + "\n")
-    f.write("\n".join(vcf_rows))
-
-print(f"VCF file created: {input_vcf}")
-
-# Simulate SpliceAI scores for testing
-def simulate_spliceai_score(chrom, pos, ref, alt):
-    return round(random.uniform(0, 1), 4)
-
-# Apply simulated SpliceAI scores to mutations DataFrame
-mutations['SpliceAI_max'] = mutations.apply(
-    lambda row: simulate_spliceai_score(row['chromosome'], row['startpos'], row['ref'], row['alt']),
-    axis=1
-)
-
-# Hill function to calculate DSPD probability
-def hill_function(spliceai_score, kd_base=1.0, n=2.0):
-    """
-    This function computes the DSPD probability using the Hill function.
-    The input spliceai_score is the predicted mutation probability from the RNN model.
-    """
-    kd_mutated = kd_base / (1 + spliceai_score)
-    repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
-    return repression_probability
-
-# Apply Hill function to calculate DSPS probability
-mutations['DSPS_probability'] = mutations['SpliceAI_max'].apply(hill_function)
-
-# Filter mutations in Intron 10
-mutations_INTRON10 = mutations[(mutations['startpos'] >= INTRON_10_START) & (mutations['startpos'] <= INTRON_10_END)]
-
-# Save the results for Intron 10
-output_file = r"C:\Users\rashm\CrIMR\CrIMR\cry1_intron10_spliceai_dsps_predictions.csv"  # Use raw string for path
-mutations_INTRON10.to_csv(output_file, index=False)
-
-print("DSPD probabilities for Intron 10 saved to cry1_intron10_spliceai_dsps_predictions.csv")
-print(mutations_INTRON10.head())  
-
-print(f"Results saved in: {output_file}")
+    # One-hot encode the mutated sequence
+    encoded_mutated_sequence = one_hot_encode_sequence(mutation_sequence)
+    encoded_mutated_sequence = np.array(encoded_mutated_sequence, dtype=np.float32)  # Convert to numpy array
+    
+    # Predict mutation probability using the RNN (SpliceAI score)
+    mutation_prob_value = mutation_prob(encoded_mutated_sequence)  # Pass the mutation sequence to the model
+    print(f"Mutation Probability (SpliceAI score): {mutation_prob_value}")
+    
+    # Apply Hill function to calculate DSPD probability
+    dsps_prob = hill_function(mutation_prob_value)
+    print(f"DSPD Probability: {dsps_prob}")

@@ -13,7 +13,7 @@ def get_CRY1_gene():
         return None
 
 # One-hot encode sequence and return a 1D array
-def onehotencoder(fasta_sequence, max_length = 102500):
+def onehotencoder(fasta_sequence, max_length = 13000):
     sequence_array = np.array(list(fasta_sequence))
     label_encoder = LabelEncoder()
     integer_encoded = label_encoder.fit_transform(sequence_array)
@@ -41,6 +41,7 @@ def add_mutation(seq, start, end, refnuc, altnuc):
 # Process the mutation CSV and apply mutations to the CRY1 sequence
 def process_mutations(csv_path, cry1_seq, output_path):
     df = pd.read_csv(csv_path, usecols=['chromEnd', 'ref', 'alt', 'AF', 'genes', 'variation_type', '_displayName'])
+
     df = df[df["variation_type"].str.contains("intron_variant", na=False, case=False)]
 
     # Initialize existing data for appending
@@ -51,9 +52,9 @@ def process_mutations(csv_path, cry1_seq, output_path):
 
     # Process each row in the CSV
     seq_count = 0
-    batch = 100
+    batch = 1
     rows_save = []
-    max_seq_count = 100
+    max_seq_count = 1
     for index, row in df.iterrows():
         if seq_count >= max_seq_count:
             print("Reached maximum sequence count.")
@@ -84,7 +85,7 @@ def process_mutations(csv_path, cry1_seq, output_path):
 
 # Path to CSV file with mutations and output path
 csv_file = "cry1realvariations (1).csv"
-output_file = "E:\\datasets\\processeddata\\MUTATION_DATA_TRAINING_100.npz"
+output_file = "Test_M.npz"
 
 # Fetch CRY1 sequence and process mutations
 cry1_seq = get_CRY1_gene()

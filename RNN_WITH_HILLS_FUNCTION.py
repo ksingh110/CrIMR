@@ -1,112 +1,100 @@
-import re
-import pandas as pd
+import requests
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.utils import shuffle
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import IsolationForest
-from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, EarlyStopping
-from sklearn.metrics import classification_report, roc_curve, roc_auc_score
-from tensorflow.keras import regularizers
-from sklearn.manifold import TSNE
-import umap.umap_ as umap
 
-# Define exon 11 coordinates (GRCh38)
-EXON_11_START = 96257
-EXON_11_END = 100513
+# Load the RNN model
+rnn_model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras")
 
-def parse_spliceai_vcf(vcf_file):
-    spliceai_data = []
-    with open(vcf_file, 'r') as f:
-        for line in f:
-            if line.startswith("#"):
-                continue  # Skip header
-            fields = line.strip().split("\t")
-            chrom, pos, ref, alt, info = fields[0], int(fields[1]), fields[3], fields[4], fields[7]
-            if EXON_11_START <= pos <= EXON_11_END:
-                match = re.search(r'SPLICEAI=[^|]+\|([\d.]+)\|([\d.]+)\|([\d.]+)\|([\d.]+)', info)
-                if match:
-                    spliceai_scores = [float(match.group(i)) for i in range(1, 5)]
-                    max_spliceai = max(spliceai_scores)
-                    spliceai_data.append({
-                        "chromosome": chrom,
-                        "position": pos,
-                        "ref": ref,
-                        "alt": alt,
-                        "SpliceAI_max": max_spliceai
-                    })
-    return pd.DataFrame(spliceai_data)
+# Define base encoding for DNA sequences (one-hot encoding)
+base_encoding = {'A': [1, 0, 0, 0], 'T': [0, 1, 0, 0], 'C': [0, 0, 1, 0], 'G': [0, 0, 0, 1]}
 
+# Function to one-hot encode the sequence
+def one_hot_encode_sequence(sequence):
+    return [base_encoding.get(base, [0, 0, 0, 0]) for base in sequence]  # One-hot encoding
+
+# Function to fetch the reference sequence from UCSC Genome Browser API
+def get_CRY1_gene():
+    response = requests.get("https://api.genome.ucsc.edu/getData/sequence?genome=hg38;chrom=chr12;start=106991364;end=107004364")
+    if response.status_code == 200:
+        return response.json().get("dna", "").upper()
+    else:
+        return None
+
+# Function to find mutation locations by comparing the reference sequence and mutation sequence
+def get_mutation_location(ref_sequence, mutation_sequence):
+    # Ensure both sequences are the same length
+    if len(ref_sequence) != len(mutation_sequence):
+        raise ValueError("Reference and mutation sequences must have the same length")
+
+    # Compare each base and find the mutation position
+    mutation_positions = []
+    mutations = []
+    for i, (ref_base, mut_base) in enumerate(zip(ref_sequence, mutation_sequence)):
+        if ref_base != mut_base:
+            mutation_positions.append(i)
+            mutations.append((ref_base, mut_base))  # Store ref and alt alleles at this position
+    
+    return mutation_positions, mutations  # Returns mutation positions and (ref, alt) pairs
+
+# Function to predict mutation probability using the RNN
+def mutation_prob(sequence):
+    sequence = np.expand_dims(sequence, axis=0)  # Add batch dimension
+    return rnn_model.predict(sequence)[0][0]  # Predict and return the mutation probability
+
+# Hill function to calculate DSPD probability
 def hill_function(spliceai_score, kd_base=1.0, n=2.0):
     kd_mutated = kd_base / (1 + spliceai_score)
     repression_probability = 1 / (1 + (spliceai_score / kd_mutated) ** n)
     return repression_probability
 
-vcf_file = "cry1_spliceai.vcf"
-df = parse_spliceai_vcf(vcf_file)
-df["DSPS_probability"] = df["SpliceAI_max"].apply(hill_function)
-df.to_csv("cry1_exon11_dsps_predictions.csv", index=False)
-print(df.head())
+# Define the start and end positions for Intron 10
+INTRON_10_START = 106991364
+INTRON_10_END = 107004364
 
-mutated_data = np.load("/content/MUTATION_DATA_TRAIN_6000.npz", allow_pickle=True)
-mutated_test = mutated_data['arr_0'][:1000]
-np.savez_compressed("MUTATED_DATA_TEST_1000_6000", arr_0=np.array(mutated_test))
-mutated_val = mutated_data['arr_0'][5000:]
-np.savez_compressed("MUTATED_DATA_VAL_1000_6000", arr_0=np.array(mutated_val))
-mutated_train = mutated_data['arr_0'][1000:5000]
-np.savez_compressed("MUTATED_DATA_TRAIN_5000_6000", arr_0=np.array(mutated_train))
+# Load mutation sequence from the .npz file
+mutation_sequence_data = np.load("test1.npz", allow_pickle=True)
+mutation_sequence = mutation_sequence_data['arr_0'][0]  # Adjust the key based on the file content
 
-def load_sequences(data):
-    encoded_sequences = None
-    for key in data.files:
-        temp_sequences = data[key]
-        if temp_sequences.ndim == 2:
-            temp_sequences = np.expand_dims(temp_sequences, axis=1)
-        if temp_sequences.ndim == 3:
-            encoded_sequences = temp_sequences
-            break
-    return encoded_sequences
+# Fetch the reference sequence for the CRY1 gene region from UCSC
+ref_sequence = get_CRY1_gene()
 
-mutated_test = load_sequences(np.load("/content/MUTATED_DATA_TEST_1000_6000_TRUE_3.npz", allow_pickle=True))
-mutated_test_label = np.ones(mutated_test.shape[0])
-mutated_test, mutated_test_label = shuffle(mutated_test, mutated_test_label, random_state=42)
+# Check lengths of both sequences
+print(f"Length of reference sequence: {len(ref_sequence)}")
+print(f"Length of mutation sequence: {len(mutation_sequence)}")
 
-mutated_val = load_sequences(np.load("/content/MUTATED_DATA_VAL_1000_6000_TRUE_2.npz", allow_pickle=True))
-mutated_val_label = np.ones(mutated_val.shape[0])
-mutated_val, mutated_val_label = shuffle(mutated_val, mutated_val_label, random_state=42)
+# Check if lengths match
+if len(ref_sequence) != len(mutation_sequence):
+    # Handle length mismatch: truncate or pad the sequences
+    min_length = min(len(ref_sequence), len(mutation_sequence))
+    ref_sequence = ref_sequence[:min_length]  # Truncate reference sequence
+    mutation_sequence = mutation_sequence[:min_length]  # Truncate mutation sequence
+    print(f"Sequences have been truncated to length: {min_length}")
 
-mutated_train = load_sequences(np.load("/content/MUTATED_DATA_TRAIN_5000_6000_TRUE_2.npz", allow_pickle=True))
-mutated_train_label = np.ones(mutated_train.shape[0])
-mutated_train, mutated_train_label = shuffle(mutated_train, mutated_train_label, random_state=42)
+    # Alternatively, you could pad the shorter sequence, for example:
+    # if len(ref_sequence) < len(mutation_sequence):
+    #     mutation_sequence = mutation_sequence[:len(ref_sequence)]
+    # else:
+    #     ref_sequence = ref_sequence[:len(mutation_sequence)]
 
-X_train = np.concatenate([mutated_train], axis=0)
-y_train = np.concatenate([mutated_train_label], axis=0)
-X_train, y_train = shuffle(X_train, y_train, random_state=1)
+# Compare the reference sequence with the mutation sequence
+mutation_positions, mutations = get_mutation_location(ref_sequence, mutation_sequence)
 
-scaler = MinMaxScaler()
-X_train_scaled = scaler.fit_transform(X_train.reshape(X_train.shape[0], -1))
+# Output the mutation positions and the corresponding reference and alternate alleles
+for pos, (ref, alt) in zip(mutation_positions, mutations):
+    print(f"Mutation at position {pos + INTRON_10_START}:")
+    print(f"  Reference Allele: {ref}, Alternate Allele: {alt}")
 
-pca_data = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_train_scaled)
-plt.figure(figsize=(10, 8))
-plt.scatter(pca_data[:, 0], pca_data[:, 1], c=y_train, cmap='coolwarm', alpha=0.7)
-plt.colorbar(label='Class Label')
-plt.title("t-SNE Projection of Training Data")
-plt.xlabel("t-SNE Component 1")
-plt.ylabel("t-SNE Component 2")
-plt.show()
-
-model = Sequential([
-    Bidirectional(LSTM(32, activation="relu", return_sequences=True), input_shape=(X_train.shape[1], X_train.shape[2])),
-    Dropout(0.2),
-    LSTM(16, activation="relu"),
-    Dropout(0.2),
-    Dense(8, activation="relu"),
-    Dense(1, activation="sigmoid")
-])
-
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-model.summary()
+    # Extract the corresponding substring for the mutation
+    mutated_subsequence = mutation_sequence[pos]
+    
+    # One-hot encode the mutated sequence
+    encoded_mutated_sequence = one_hot_encode_sequence(mutation_sequence)
+    encoded_mutated_sequence = np.array(encoded_mutated_sequence, dtype=np.float32)  # Convert to numpy array
+    
+    # Predict mutation probability using the RNN (SpliceAI score)
+    mutation_prob_value = mutation_prob(encoded_mutated_sequence)  # Pass the mutation sequence to the model
+    print(f"Mutation Probability (SpliceAI score): {mutation_prob_value}")
+    
+    # Apply Hill function to calculate DSPD probability
+    dsps_prob = hill_function(mutation_prob_value)
+    print(f"DSPD Probability: {dsps_prob}")

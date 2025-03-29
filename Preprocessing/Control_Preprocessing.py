@@ -87,7 +87,7 @@ def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=1):
     print(f"Processed {seq_count} augmented sequences and saved to {output_path}.")
 
 # Path to output file
-output_file = "test2.npz"
+output_file = "test7.npz"
 
 # Fetch CRY1 sequence and process data with augmentation
 cry1_seq = get_CRY1_gene()

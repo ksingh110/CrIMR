@@ -267,72 +267,81 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script>
-        // Function to trigger the prediction when the "Predict" button is clicked
         document.getElementById('predictButton').addEventListener('click', async function() {
-            const fileInput = document.getElementById('fileInput').files[0];
-            if (!fileInput) {
-                alert('Please select a file to upload.');
+        const fileInput = document.getElementById('fileInput').files[0];
+        if (!fileInput) {
+            alert('Please select a file to upload.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput);
+
+        // Force a fresh request with a timestamp to prevent caching issues
+        const timestamp = new Date().getTime();
+        const apiUrl = `http://127.0.0.1:5000/predict?t=${timestamp}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Cache-Control': 'no-cache',
+                }
+            });
+
+            const result = await response.json();
+            
+            // Debug: Print server response
+            console.log("Server Response:", result);
+
+            if (result.error) {
+                alert(`Error: ${result.error}`);
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('file', fileInput);
-            
-            // Add a timestamp to prevent caching
-            const timestamp = new Date().getTime();
-            formData.append('timestamp', timestamp);
+            // Display the prediction result
+            const predictionText = result.prediction === 'DSPD' ? 'DSPD' : 'Non-DSPD';
+            document.getElementById('prediction-result-text').textContent = `Prediction: ${predictionText}`;
 
-            try {
-                const response = await fetch('http://127.0.0.1:5000/predict', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Cache-Control': 'no-cache', // Prevent caching of the request
-                    }
-                });
+            // Update bar chart visuals
+            const mutationBar = document.getElementById('mutation-bar');
+            const nonMutationBar = document.getElementById('non-mutation-bar');
 
-                const result = await response.json();
+            const mutationPercentage = (result.mutation_prob * 100).toFixed(0);
+            const nonMutationPercentage = (result.non_mutation_prob * 100).toFixed(0);
 
-                // Display the prediction result
-                const predictionText = result.prediction === 'DSPD' ? 'DSPD' : 'Non-DSPD';
-                document.getElementById('prediction-result-text').textContent = `Prediction: ${predictionText}`;
+            console.log(`Mutation Probability: ${mutationPercentage}%`);
+            console.log(`Non-Mutation Probability: ${nonMutationPercentage}%`);
 
-                // Set up rounded bar chart-like shapes
-                const mutationBar = document.getElementById('mutation-bar');
-                const nonMutationBar = document.getElementById('non-mutation-bar');
+            // Set bar widths dynamically
+            mutationBar.style.width = `${mutationPercentage}%`;
+            nonMutationBar.style.width = `${nonMutationPercentage}%`;
 
-                const mutationPercentage = (result.mutation_prob * 100).toFixed(0);
-                const nonMutationPercentage = (result.non_mutation_prob * 100).toFixed(0);
+            document.getElementById('mutation-percentage').textContent = `${mutationPercentage}%`;
+            document.getElementById('non-mutation-percentage').textContent = `${nonMutationPercentage}%`;
 
-                // Set the widths and display percentages on the far right
-                mutationBar.style.width = `${mutationPercentage}%`;
-                nonMutationBar.style.width = `${nonMutationPercentage}%`;
-
-                document.getElementById('mutation-percentage').textContent = `${mutationPercentage}%`;
-                document.getElementById('non-mutation-percentage').textContent = `${nonMutationPercentage}%`;
-
-                // Show the modal with prediction and custom bars
-                document.getElementById('resultModal').style.display = 'block';
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-            }
-        });
-
-        // Get the modal and close button
-        var modal = document.getElementById('resultModal');
-        var closeBtn = document.getElementsByClassName('close')[0];
-
-        // Close the modal when the user clicks the "x"
-        closeBtn.onclick = function() {
-            modal.style.display = 'none';
+            // Show the modal with prediction and bars
+            document.getElementById('resultModal').style.display = 'block';
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+            console.error("Fetch Error:", error);
         }
+    });
 
-        // Close the modal if the user clicks anywhere outside of the modal
-        window.onclick = function(event) {
-            if (event.target == modal) {
-                modal.style.display = 'none';
-            }
+    // Close modal when clicking the "x"
+    document.getElementsByClassName('close')[0].onclick = function() {
+        document.getElementById('resultModal').style.display = 'none';
+    };
+
+    // Close modal when clicking outside of it
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('resultModal')) {
+            document.getElementById('resultModal').style.display = 'none';
         }
+    };
+
+   
     </script>
 </body>
 </html>

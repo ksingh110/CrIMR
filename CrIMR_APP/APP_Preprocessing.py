@@ -24,7 +24,7 @@ def onehotencoder(fasta_sequence, max_length=13000):
         onehot_sequence = np.vstack([onehot_sequence, padding])
     else:
         onehot_sequence = onehot_sequence[:max_length, :]
-    return onehot_sequence.flatten() # Return the sequence without flattening for compatibility with LSTM
+    return onehot_sequence.flatten()
 
 # Function to process sequence (one-hot encoded) and return it in a format suitable for further use
 def process(sequence):

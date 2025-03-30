@@ -6,7 +6,8 @@ from APP_Preprocessing import onehotencoder  # Assuming this is the preprocessin
 from APP_Preprocessing import process
 import pandas as pd
 import umap 
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
 # Load your trained model
 model = tf.keras.models.load_model("/Users/krishaysingh/Downloads/6000_5_if_new_best_model.keras") 
 
@@ -61,7 +62,7 @@ def predict():
         # Save the uploaded file
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
-
+        
         # Load data based on file type
         if file.filename.endswith('.npy'):
             input_data = np.load(file_path, allow_pickle=True)
@@ -74,13 +75,14 @@ def predict():
             input_data = df.to_numpy()
         else:
             return jsonify({'error': 'Unsupported file format. Please upload .npy, .npz, or .csv'}), 400
+        
         X_umap = apply_umap_on_data(input_data)
 
         # Ensure input data has the correct shape (batch_size, timesteps, features)
          # Convert (samples, features) → (samples, 1, features)
         
         # Make prediction
-        prediction = model.predict(X_umap).flatten()
+
 
         # Return the prediction as JSON
         prediction_prob = model.predict(X_umap).flatten()
@@ -88,20 +90,15 @@ def predict():
         # Compute the probabilities for mutation and non-mutation
         mutation_prob = float(prediction_prob[0])  # Assuming the second class is "mutation"
         non_mutation_prob = 1 - mutation_prob  # Assuming only two classes: mutation and non-mutation
-
         # If probability > 0.5, it's DSPD, else it's non-DSPD
         prediction = 'DSPD' if mutation_prob > 0.5 else 'Non-DSPD'
-
+        logging.debug(f"Predicted mutation_prob: {mutation_prob}, non_mutation_prob: {non_mutation_prob}")
         # Return the prediction and probabilities
         return jsonify({
             'prediction': prediction,
             'mutation_prob': mutation_prob,
             'non_mutation_prob': non_mutation_prob
         })
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

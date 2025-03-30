@@ -27,6 +27,7 @@ def onehotencoder(fasta_sequence, max_length=13000):
         onehot_sequence = np.vstack([onehot_sequence, padding])
     else:
         onehot_sequence = onehot_sequence[:max_length, :]
+    
     return onehot_sequence.flatten()
 
 # Augment sequence by introducing substitutions, deletions, or insertions
@@ -35,63 +36,29 @@ def augment_sequence(seq, substitution_prob=0.33, deletion_prob=0.33, insertion_
     seq_len = len(augmented_seq)
 
     for i in range(seq_len):
-        # Substitution
-        if random.random() < substitution_prob:
+        if random.random() < substitution_prob:  # Substitution
             augmented_seq[i] = random.choice(['A', 'G', 'C', 'T'])
-        
-        # Deletion
-        elif random.random() < deletion_prob:
+        elif random.random() < deletion_prob:  # Deletion
             augmented_seq[i] = ''
-        
-        # Insertion
-        elif random.random() < insertion_prob:
+        elif random.random() < insertion_prob:  # Insertion
             augmented_seq.insert(i, random.choice(['A', 'G', 'C', 'T']))
-            seq_len += 1  # Increase sequence length after insertion
-            i += 1  # Skip the next index after insertion to avoid double counting
+            seq_len += 1  
+            i += 1  
 
-    # Join the list back to a string after mutation
-    augmented_seq = ''.join(augmented_seq)
-    return augmented_seq
+    return ''.join(augmented_seq)
 
-# Process augmented sequence and save to output file
-def process_data_augmentation(cry1_seq, output_path, num_augmented_sequences=1):
-    # Initialize existing data for appending
-    if os.path.exists(output_path):
-        existing_data = np.load(output_path, allow_pickle=True)["arr_0"].tolist()
-    else:
-        existing_data = []
+# Generate multiple augmented sequences and save separately
+def generate_and_save_sequences(cry1_seq, num_sequences=5):
+    for i in range(1, num_sequences + 1):
+        augmented_seq = augment_sequence(cry1_seq)  # Generate a new augmented sequence each time
+        encoded_seq = onehotencoder(augmented_seq)
+        output_file = f"testing{i}.npz"
+        np.savez_compressed(output_file, arr_0=np.array([encoded_seq]))  # Save each sequence separately
+        print(f"Saved {output_file}.")
 
-    seq_count = 0
-    batch = 250
-    rows_save = []
-
-    # Generate augmented sequences and save
-    while seq_count < num_augmented_sequences:
-        # Augment the sequence
-        augmented_seq = augment_sequence(cry1_seq)
-        print(f"Processed augmented sequence {seq_count + 1}.")
-        if augmented_seq:
-            encoded_seq = onehotencoder(augmented_seq)
-            seq_count += 1
-            rows_save.append(encoded_seq)
-
-            if len(rows_save) >= batch:
-                existing_data.extend(rows_save)
-                np.savez_compressed(output_path, arr_0=np.array(existing_data))
-                rows_save = []
-
-    if rows_save:
-        existing_data.extend(rows_save)
-        np.savez_compressed(output_path, arr_0=np.array(existing_data))
-    
-    print(f"Processed {seq_count} augmented sequences and saved to {output_path}.")
-
-# Path to output file
-output_file = "test7.npz"
-
-# Fetch CRY1 sequence and process data with augmentation
+# Fetch CRY1 sequence and generate 5 different augmented test sequences
 cry1_seq = get_CRY1_gene()
 if cry1_seq:
-    process_data_augmentation(cry1_seq, output_file)
+    generate_and_save_sequences(cry1_seq, num_sequences=5)
 else:
     print("Failed to fetch CRY1 gene sequence.")

@@ -7,17 +7,72 @@
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(to bottom, #000000, #315a81);
+            background: linear-gradient(135deg, #000000 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #315a81 100%);
             margin: 0;
             padding: 0;
             overflow-y: auto;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Animated Background Elements */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(248, 124, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(49, 90, 129, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(164, 52, 0, 0.08) 0%, transparent 50%);
+            z-index: -2;
+            animation: backgroundPulse 8s ease-in-out infinite alternate;
+        }
+
+        /* Floating geometric shapes */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                radial-gradient(circle at 70% 60%, rgba(248, 124, 0, 0.03) 2px, transparent 2px),
+                radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+            background-size: 100px 100px, 150px 150px, 80px 80px;
+            z-index: -1;
+            animation: floatingDots 20s linear infinite;
+        }
+
+        /* Background animations */
+        @keyframes backgroundPulse {
+            0% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes floatingDots {
+            0% { transform: translateY(0px) rotate(0deg); }
+            100% { transform: translateY(-20px) rotate(360deg); }
+        }
+
+        /* Glassmorphism effect for sections */
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
         /* Fade In Left Animation */
         @keyframes fadeInLeft {
             from {
                 opacity: 0;
-                transform: translateX(-50px); /* Starts from the left */
+                transform: translateX(-50px);
                 visibility: visible;
             }
             to {
@@ -26,10 +81,21 @@
             }
         }
 
+        /* Glow effect animation */
+        @keyframes glow {
+            0%, 100% { 
+                box-shadow: 0 0 20px rgba(248, 124, 0, 0.3);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(248, 124, 0, 0.6);
+            }
+        }
+
         .top-bar {
-            background-color: transparent;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
             width: 100%;
-            height: 50px;
+            height: 70px;
             position: fixed;
             top: 0;
             left: 0;
@@ -38,6 +104,7 @@
             align-items: center;
             justify-content: center;
             padding: 0 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .nav-bar {
@@ -47,18 +114,22 @@
 
         .nav-button {
             position: relative;
-            top: 10px;
-            left: -20px;
             background: transparent;
             color: white;
-            border: none;
-            font-size: 14px;
+            border: 2px solid transparent;
+            font-size: 16px;
             cursor: pointer;
-            padding: 10px 15px;
+            padding: 12px 24px;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 500;
         }
 
         .nav-button:hover {
             color: #f87c00;
+            border-color: rgba(248, 124, 0, 0.5);
+            background: rgba(248, 124, 0, 0.1);
+            transform: translateY(-2px);
         }
 
         /* Landing Content */
@@ -68,91 +139,402 @@
             align-items: center;
             height: 100vh;
             flex-direction: column;
-            text-align: left; /* Align text to left */
-            padding-left: 5vw; /* Move content a little to the left */
+            text-align: left;
+            padding-left: 5vw;
+            position: relative;
         }
 
         /* Header Animation */
         .landing-content h1 {
-            font-size: 3rem;
+            font-size: 4rem;
             color: #ffffff;
-            opacity: 0; /* Start hidden */
+            opacity: 0;
             animation: fadeInLeft 1s ease-out forwards;
             animation-delay: 0.5s;
+            text-shadow: 2px 2px 20px rgba(248, 124, 0, 0.3);
+            background: linear-gradient(45deg, #ffffff, #f87c00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         /* Paragraph Animation */
         .landing-content p {
-            font-size: 1.2rem;
-            color: #fff4f4;
-            opacity: 0; /* Start hidden */
+            font-size: 1.4rem;
+            color: #e0e0e0;
+            opacity: 0;
             animation: fadeInLeft 1s ease-out forwards;
             animation-delay: 1.5s;
+            text-shadow: 1px 1px 10px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            line-height: 1.6;
         }
 
         /* Button Animation */
         .landing-content button {
-            padding: 12px 25px;
-            font-size: 1.2rem;
-            border-radius: 20px;
-            background-image: linear-gradient(45deg, #f87c00, #a43400);
+            padding: 16px 40px;
+            font-size: 1.3rem;
+            border-radius: 30px;
+            background: linear-gradient(45deg, #f87c00, #a43400);
             background-size: 200% 200%;
             color: white;
             border: none;
             cursor: pointer;
             outline: none;
-            opacity: 0; /* Start hidden */
-            animation: fadeInLeft 1s ease-out forwards;
-            animation-delay: 2.5s;
+            opacity: 0;
+            animation: fadeInLeft 1s ease-out forwards, glow 3s ease-in-out infinite;
+            animation-delay: 2.5s, 3.5s;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(248, 124, 0, 0.3);
         }
 
         .landing-content button:hover {
-            background-image: linear-gradient(45deg, #a43400, #f87c00);
-            box-shadow: 0 0 5px #f87c00;
+            background: linear-gradient(45deg, #a43400, #f87c00);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(248, 124, 0, 0.5);
         }
 
-        /* Responsive Styles for iPads & Phones */
+        /* DSPD Blurb Style */
+        .dspd-blurb {
+            color: white;
+            padding: 40px;
+            text-align: center;
+            font-size: 1rem;
+            margin: 100px auto 50px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 1000px;
+            position: relative;
+        }
+
+        .dspd-blurb h2 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #ffffff, #f87c00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 2px 2px 20px rgba(248, 124, 0, 0.3);
+        }
+
+        .dspd-blurb p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #e0e0e0;
+            text-shadow: 1px 1px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Responsive Styles */
         @media (max-width: 1024px) {
             .landing-content {
-                padding-left: 3vw; /* Adjust padding */
+                padding-left: 3vw;
             }
             .landing-content h1 {
-                font-size: 2.5rem;
+                font-size: 3rem;
             }
             .landing-content p {
-                font-size: 1rem;
+                font-size: 1.2rem;
             }
             .landing-content button {
-                font-size: 1rem;
-                padding: 10px 20px;
+                font-size: 1.1rem;
+                padding: 14px 30px;
+            }
+            .dspd-blurb h2 {
+                font-size: 2rem;
             }
         }
 
         @media (max-width: 768px) {
             .nav-bar {
-                flex-direction: column;
-                gap: 10px;
+                flex-direction: row;
+                gap: 30px;
+            }
+            .nav-button {
+                font-size: 14px;
+                padding: 10px 18px;
             }
             .landing-content {
                 text-align: center;
                 padding-left: 0;
+                padding: 0 20px;
+            }
+            .landing-content h1 {
+                font-size: 2.5rem;
+            }
+            .dspd-blurb {
+                padding: 30px 20px;
+                width: 95%;
+            }
+            .dspd-blurb h2 {
+                font-size: 1.8rem;
             }
         }
 
-        /* DSPD Blurb Style */
-        .dspd-blurb {
-            background-color: transparent;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            font-size: 1rem;
-            margin-top: 50px;
-            border-radius: 8px;
+        /* DNA and Sleep Genetics Visual Elements */
+        .main-dna-helix {
+            position: fixed;
+            width: 150px;
+            height: 500px;
+            top: 50%;
+            right: 5%;
+            transform: translateY(-50%);
+            z-index: -1;
+            opacity: 0.2;
+            animation: mainDnaRotate 20s linear infinite;
+        }
+
+        .main-dna-strand {
+            position: absolute;
             width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent 0px,
+                transparent 12px,
+                rgba(248, 124, 0, 0.4) 12px,
+                rgba(248, 124, 0, 0.4) 16px,
+                transparent 16px,
+                transparent 28px,
+                rgba(49, 90, 129, 0.4) 28px,
+                rgba(49, 90, 129, 0.4) 32px
+            );
+            border-radius: 8px;
+            transform-origin: center;
+        }
+
+        .main-dna-strand:nth-child(1) {
+            transform: rotateY(0deg);
+        }
+
+        .main-dna-strand:nth-child(2) {
+            transform: rotateY(120deg);
+        }
+
+        .main-dna-strand:nth-child(3) {
+            transform: rotateY(240deg);
+        }
+
+        @keyframes mainDnaRotate {
+            0% { transform: translateY(-50%) rotateY(0deg) rotateX(0deg); }
+            100% { transform: translateY(-50%) rotateY(360deg) rotateX(15deg); }
+        }
+
+        /* Sleep Gene Mutation Labels */
+        .gene-mutation {
+            position: fixed;
+            font-family: 'Courier New', monospace;
+            color: rgba(248, 124, 0, 0.6);
+            z-index: -1;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            border: 1px solid rgba(248, 124, 0, 0.3);
+            font-size: 11px;
+            font-weight: bold;
+            animation: geneFloat 8s ease-in-out infinite;
+        }
+
+        .mutation-1 {
+            top: 20%;
+            left: 8%;
+            animation-delay: 0s;
+        }
+
+        .mutation-2 {
+            bottom: 25%;
+            left: 12%;
+            animation-delay: 3s;
+        }
+
+        .mutation-3 {
+            top: 70%;
+            right: 25%;
+            animation-delay: 6s;
+        }
+
+        @keyframes geneFloat {
+            0%, 100% { 
+                transform: translateY(0px) scale(1); 
+                opacity: 0.6; 
+            }
+            50% { 
+                transform: translateY(-15px) scale(1.05); 
+                opacity: 0.8; 
+            }
+        }
+
+        /* Circadian Clock Gene Visualization */
+        .clock-gene {
+            position: fixed;
+            width: 80px;
+            height: 80px;
+            border: 3px solid rgba(49, 90, 129, 0.3);
+            border-radius: 50%;
+            z-index: -1;
+            animation: clockTick 12s linear infinite;
+        }
+
+        .clock-gene::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 30px;
+            background: rgba(248, 124, 0, 0.5);
+            transform-origin: bottom;
+            transform: translate(-50%, -100%) rotate(0deg);
+            animation: clockHand 12s linear infinite;
+        }
+
+        .clock-gene::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            background: rgba(248, 124, 0, 0.7);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .clock-1 {
+            top: 15%;
+            left: 15%;
+            animation-delay: 0s;
+        }
+
+        .clock-2 {
+            bottom: 15%;
+            right: 35%;
+            animation-delay: 6s;
+        }
+
+        @keyframes clockTick {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        @keyframes clockHand {
+            0% { transform: translate(-50%, -100%) rotate(0deg); }
+            100% { transform: translate(-50%, -100%) rotate(360deg); }
+        }
+
+        /* Sleep Phase Delay Visualization */
+        .sleep-wave {
+            position: fixed;
+            width: 200px;
+            height: 60px;
+            z-index: -1;
+            opacity: 0.15;
+        }
+
+        .sleep-wave svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .wave-1 {
+            top: 40%;
+            left: 5%;
+            animation: waveFlow 8s ease-in-out infinite;
+        }
+
+        .wave-2 {
+            bottom: 40%;
+            right: 8%;
+            animation: waveFlow 10s ease-in-out infinite reverse;
+            animation-delay: 2s;
+        }
+
+        @keyframes waveFlow {
+            0%, 100% { transform: translateX(0px) scale(1); }
+            50% { transform: translateX(20px) scale(1.1); }
+        }
+
+        /* Additional decorative elements */
+        .decoration-1, .decoration-2, .decoration-3 {
+            position: fixed;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(248, 124, 0, 0.1), transparent);
+            z-index: -1;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .decoration-1 {
+            width: 200px;
+            height: 200px;
+            top: 10%;
+            right: 10%;
+            animation-delay: 0s;
+        }
+
+        .decoration-2 {
+            width: 150px;
+            height: 150px;
+            bottom: 20%;
+            left: 5%;
+            animation-delay: 2s;
+        }
+
+        .decoration-3 {
+            width: 100px;
+            height: 100px;
+            top: 50%;
+            right: 5%;
+            animation-delay: 4s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-20px) scale(1.1); }
         }
     </style>
 </head>
 <body>
+    <!-- Large Prominent DNA Helix -->
+    <div class="main-dna-helix">
+        <div class="main-dna-strand"></div>
+        <div class="main-dna-strand"></div>
+        <div class="main-dna-strand"></div>
+    </div>
+
+    <!-- Sleep Disorder Gene Mutations -->
+    <div class="gene-mutation mutation-1">CRY1 Exon 11<br/>c.1657+3A>C</div>
+    <div class="gene-mutation mutation-2">CRY2 Variant<br/>rs10838524</div>
+    <div class="gene-mutation mutation-3">CRY1 Splice<br/>Δ11 Mutation</div>
+
+    <!-- Circadian Clock Gene Visualizations -->
+    <div class="clock-gene clock-1"></div>
+    <div class="clock-gene clock-2"></div>
+
+    <!-- Sleep Wave Patterns -->
+    <div class="sleep-wave wave-1">
+        <svg viewBox="0 0 200 60">
+            <path d="M0,30 Q25,10 50,30 T100,30 T150,30 T200,30" 
+                  stroke="rgba(248, 124, 0, 0.4)" 
+                  stroke-width="2" 
+                  fill="none"/>
+        </svg>
+    </div>
+    <div class="sleep-wave wave-2">
+        <svg viewBox="0 0 200 60">
+            <path d="M0,30 Q25,50 50,30 T100,30 T150,30 T200,30" 
+                  stroke="rgba(49, 90, 129, 0.4)" 
+                  stroke-width="2" 
+                  fill="none"/>
+        </svg>
+    </div>
+
+    <!-- Decorative elements -->
+    <div class="decoration-1"></div>
+    <div class="decoration-2"></div>
+    <div class="decoration-3"></div>
+
     <!-- Top Bar -->
     <div class="top-bar">
         <div class="nav-bar">
@@ -169,9 +551,9 @@
     </div>
 
     <!-- DSPD Blurb at the Bottom -->
-    <div class="dspd-blurb">
+    <div class="dspd-blurb glass-effect">
         <h2>What is Delayed Sleep Phase Disorder (DSPD)?</h2>
-        <p>Delayed Sleep Phase Disorder (DSPD) is one of the most common genetically-caused sleep disorder where individuals inherit a late sleep/wake cycle, sleeping at least 1-2 hours later than recommended. Being presentin in 15% of adolescents and adults, its genetic backing remains the cause for 40-50% cases. Yet current methods of diagnosis, such as DLMO's and PSG's, fail to acknolwedge the genetic aspect, restricting personalized diagnosis and treatment. DSPDiagnosis, trained by the novel LSTM model CrIMR, is the world's first solution towards this significant problem. Try it out today!</p>
+        <p>Delayed Sleep Phase Disorder (DSPD) is one of the most common genetically-caused sleep disorder where individuals inherit a late sleep/wake cycle, sleeping at least 1-2 hours later than recommended. Being present in 15% of adolescents and adults, its genetic backing remains the cause for 40-50% cases. Yet current methods of diagnosis, such as DLMO's and PSG's, fail to acknowledge the genetic aspect, restricting personalized diagnosis and treatment. DSPDiagnosis, trained by the novel LSTM model CrIMR, is the world's first solution towards this significant problem. Try it out today!</p>
     </div>
 </body>
 </html>

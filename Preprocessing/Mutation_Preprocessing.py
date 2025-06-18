@@ -41,7 +41,7 @@ def add_mutation(seq, start, end, refnuc, altnuc):
         mutated_seq = seq[:seq_start] + altnuc + seq[seq_end:]
         return mutated_seq
 
-# Process the mutation CSV and apply mutations to create multiple unique mutation sets
+
 def generate_mutated_sequences(csv_path, cry1_seq, num_files=5):
     df = pd.read_csv(csv_path, usecols=['chromEnd', 'ref', 'alt', 'AF', 'genes', 'variation_type', '_displayName'])
     df = df[df["variation_type"].str.contains("intron_variant", na=False, case=False)]
